@@ -8,14 +8,13 @@ use App\Http\Controllers\VentaController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ReporteExportController;
 use App\Http\Controllers\CotizacionDolarController;
+use App\Http\Controllers\DashboardController;
 
 // =====================
 // 🔹 RUTAS DE COTIZACION
 // =====================
-
 Route::get('/cotizacion', [CotizacionDolarController::class, 'index'])->name('cotizacion.index');
 Route::post('/cotizacion', [CotizacionDolarController::class, 'store'])->name('cotizacion.store');
-
 
 // =====================
 // 🔹 RUTAS DE REPORTES
@@ -43,9 +42,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
+
 
 // =====================
 // 🔹 PERFIL DE USUARIO
@@ -56,4 +56,4 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

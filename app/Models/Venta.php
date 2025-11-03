@@ -12,10 +12,21 @@ class Venta extends Model
     protected $table = 'ventas';
 
     protected $fillable = [
-        'cliente_id', 'vendedor_id', 'fecha', 'cotizacion_dolar',
-        'total_venta_ars', 'total_venta_usd', 'tipo_entrega',
-        'costo_envio', 'metodo_pago', 'observaciones'
+        'cliente_id',
+        'vendedor_id',
+        'fecha',
+        'cotizacion_dolar',
+        'total_venta_ars',
+        'total_venta_usd',
+        'tipo_entrega',
+        'costo_envio',
+        'metodo_pago',
+        'observaciones',
+        'monto_pagado',
+        'saldo_pendiente',
+        'estado_pago',
     ];
+
 
     public function vendedor()
     {

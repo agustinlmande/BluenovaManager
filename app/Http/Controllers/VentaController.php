@@ -34,12 +34,16 @@ class VentaController extends Controller
             'productos.*.id' => 'required|exists:productos,id',
             'productos.*.cantidad' => 'required|integer|min:1',
             'productos.*.precio_unitario_ars' => 'required|numeric|min:0',
+            'monto_pagado' => 'required|numeric|min:0',
+            'saldo_pendiente' => 'required|numeric|min:0',
+            'estado_pago' => 'required|in:pagado,pendiente',
         ]);
 
         DB::transaction(function () use ($request) {
             $totalArs = 0;
             $totalUsd = 0;
 
+            // Crear la venta base
             $venta = Venta::create([
                 'fecha' => $request->fecha,
                 'vendedor_id' => $request->vendedor_id,
@@ -50,8 +54,12 @@ class VentaController extends Controller
                 'total_venta_ars' => 0,
                 'total_venta_usd' => 0,
                 'observaciones' => $request->observaciones,
+                'monto_pagado' => $request->monto_pagado,
+                'saldo_pendiente' => $request->saldo_pendiente,
+                'estado_pago' => $request->estado_pago,
             ]);
 
+            // Procesar los productos vendidos
             foreach ($request->productos as $item) {
                 $producto = Producto::find($item['id']);
                 $cantidad = $item['cantidad'];
@@ -60,8 +68,10 @@ class VentaController extends Controller
                 $subtotalArs = $precio * $cantidad;
                 $subtotalUsd = $subtotalArs / $request->cotizacion_dolar;
 
+                // Reducir stock
                 $producto->decrement('stock', $cantidad);
 
+                // Calcular ganancia y comisión
                 $ganancia = $subtotalArs - ($producto->precio_compra_ars * $cantidad);
 
                 if ($request->vendedor_id) {
@@ -89,6 +99,7 @@ class VentaController extends Controller
 
             $totalArs -= ($request->costo_envio ?? 0);
 
+            // Actualizamos el total en la venta
             $venta->update([
                 'total_venta_ars' => $totalArs,
                 'total_venta_usd' => $totalUsd,
