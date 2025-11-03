@@ -36,6 +36,23 @@ class ProductoController extends Controller
 
         $precio_compra_ars = $request->precio_compra_usd * $request->cotizacion_compra;
 
+        $precio_venta_ars = $request->precio_venta_ars;
+        $precio_venta_usd = $request->precio_venta_usd;
+        $porcentaje_ganancia = $request->porcentaje_ganancia;
+
+        // Si falta alguno de los tres, lo calculamos
+        if (!$precio_venta_ars && $porcentaje_ganancia) {
+            $precio_venta_ars = $precio_compra_ars + ($precio_compra_ars * $porcentaje_ganancia / 100);
+            $precio_venta_usd = $precio_venta_ars / $request->cotizacion_compra;
+        } elseif (!$precio_venta_ars && $precio_venta_usd) {
+            $precio_venta_ars = $precio_venta_usd * $request->cotizacion_compra;
+            $porcentaje_ganancia = (($precio_venta_ars - $precio_compra_ars) / $precio_compra_ars) * 100;
+        } elseif (!$porcentaje_ganancia && $precio_venta_ars) {
+            $porcentaje_ganancia = (($precio_venta_ars - $precio_compra_ars) / $precio_compra_ars) * 100;
+            $precio_venta_usd = $precio_venta_ars / $request->cotizacion_compra;
+        }
+
+
         Producto::create([
             'nombre' => $request->nombre,
             'categoria_id' => $request->categoria_id,

@@ -1,5 +1,3 @@
-
-
 @extends('layouts.app')
 
 @section('content')
@@ -20,7 +18,7 @@
                 <select name="categoria_id" class="form-control" required>
                     <option value="">Seleccionar...</option>
                     @foreach($categorias as $categoria)
-                        <option value="{{ $categoria->id }}">{{ $categoria->nombre }}</option>
+                    <option value="{{ $categoria->id }}">{{ $categoria->nombre }}</option>
                     @endforeach
                 </select>
             </div>
@@ -60,17 +58,49 @@
                 <input type="number" step="0.01" name="porcentaje_ganancia" class="form-control">
             </div>
 
-            <div class="col-md-3 mb-3">
-                <label>Modo de cálculo</label>
-                <select name="modo_calculo" class="form-control" required>
-                    <option value="porcentaje">Por porcentaje</option>
-                    <option value="manual">Manual</option>
-                </select>
-            </div>
         </div>
 
         <button class="btn btn-success">Guardar Producto</button>
         <a href="{{ route('productos.index') }}" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const compraUsd = document.querySelector('input[name="precio_compra_usd"]');
+        const cotizacion = document.querySelector('input[name="cotizacion_compra"]');
+        const ventaUsd = document.querySelector('input[name="precio_venta_usd"]');
+        const ventaArs = document.querySelector('input[name="precio_venta_ars"]');
+        const porcentaje = document.querySelector('input[name="porcentaje_ganancia"]');
+
+        function calcularDesdeARS() {
+            const pCompra = compraUsd.value * cotizacion.value;
+            if (ventaArs.value && cotizacion.value) {
+                ventaUsd.value = (ventaArs.value / cotizacion.value).toFixed(2);
+                porcentaje.value = (((ventaArs.value - pCompra) / pCompra) * 100).toFixed(2);
+            }
+        }
+
+        function calcularDesdeUSD() {
+            const pCompra = compraUsd.value * cotizacion.value;
+            if (ventaUsd.value && cotizacion.value) {
+                ventaArs.value = (ventaUsd.value * cotizacion.value).toFixed(2);
+                porcentaje.value = (((ventaArs.value - pCompra) / pCompra) * 100).toFixed(2);
+            }
+        }
+
+        function calcularDesdePorcentaje() {
+            const pCompra = compraUsd.value * cotizacion.value;
+            if (porcentaje.value && cotizacion.value) {
+                ventaArs.value = (pCompra + (pCompra * porcentaje.value / 100)).toFixed(2);
+                ventaUsd.value = (ventaArs.value / cotizacion.value).toFixed(2);
+            }
+        }
+
+        ventaArs.addEventListener('input', calcularDesdeARS);
+        ventaUsd.addEventListener('input', calcularDesdeUSD);
+        porcentaje.addEventListener('input', calcularDesdePorcentaje);
+    });
+</script>
+
 @endsection

@@ -9,6 +9,10 @@ use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ReporteExportController;
 use App\Http\Controllers\CotizacionDolarController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CategoriaController;
+
+Route::resource('categorias', CategoriaController::class);
+
 
 // =====================
 // 🔹 RUTAS DE COTIZACION

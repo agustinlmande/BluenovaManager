@@ -1,5 +1,3 @@
-
-
 @extends('layouts.app')
 
 @section('content')
@@ -20,9 +18,9 @@
                 <label>Categoría</label>
                 <select name="categoria_id" class="form-control" required>
                     @foreach($categorias as $categoria)
-                        <option value="{{ $categoria->id }}" {{ $categoria->id == $producto->categoria_id ? 'selected' : '' }}>
-                            {{ $categoria->nombre }}
-                        </option>
+                    <option value="{{ $categoria->id }}" {{ $categoria->id == $producto->categoria_id ? 'selected' : '' }}>
+                        {{ $categoria->nombre }}
+                    </option>
                     @endforeach
                 </select>
             </div>
@@ -61,14 +59,7 @@
                 <label>% Ganancia</label>
                 <input type="number" step="0.01" name="porcentaje_ganancia" class="form-control" value="{{ $producto->porcentaje_ganancia }}">
             </div>
-
-            <div class="col-md-3 mb-3">
-                <label>Modo de cálculo</label>
-                <select name="modo_calculo" class="form-control" required>
-                    <option value="porcentaje" {{ $producto->modo_calculo == 'porcentaje' ? 'selected' : '' }}>Por porcentaje</option>
-                    <option value="manual" {{ $producto->modo_calculo == 'manual' ? 'selected' : '' }}>Manual</option>
-                </select>
-            </div>
+            >
         </div>
 
         <button class="btn btn-success">Actualizar Producto</button>
