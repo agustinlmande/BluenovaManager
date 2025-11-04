@@ -10,62 +10,77 @@ use Illuminate\Support\Facades\DB;
 
 class CompraController extends Controller
 {
-    // Mostrar todas las compras con filtros
+    // 📋 Mostrar todas las compras (con filtros y búsqueda)
     public function index(Request $request)
     {
-        $query = Compra::with('detalles.producto')->orderBy('fecha', 'desc');
+        $query = Compra::orderBy('fecha', 'desc');
 
-        // 📅 Filtro por fechas
+        // 🔍 Búsqueda general (proveedor, fecha, totales)
+        if ($request->filled('buscar')) {
+            $buscar = $request->buscar;
+            $query->where(function ($q) use ($buscar) {
+                $q->where('proveedor', 'like', "%$buscar%")
+                  ->orWhere('fecha', 'like', "%$buscar%")
+                  ->orWhere('total_usd', 'like', "%$buscar%")
+                  ->orWhere('total_ars', 'like', "%$buscar%");
+            });
+        }
+
+        // 📅 Filtro por fecha
         if ($request->filled('fecha_desde')) {
-            $query->whereDate('fecha', '>=', $request->fecha_desde);
+            $query->where('fecha', '>=', $request->fecha_desde);
         }
         if ($request->filled('fecha_hasta')) {
-            $query->whereDate('fecha', '<=', $request->fecha_hasta);
+            $query->where('fecha', '<=', $request->fecha_hasta);
         }
 
-        // 🧾 Filtro por proveedor
+        // 🏢 Filtro por proveedor
         if ($request->filled('proveedor')) {
-            $query->where('proveedor', 'like', '%' . $request->proveedor . '%');
+            $query->where('proveedor', $request->proveedor);
         }
 
-        // 💵 Filtro por montos USD
-        if ($request->filled('monto_usd_min')) {
-            $query->where('total_usd', '>=', $request->monto_usd_min);
-        }
-        if ($request->filled('monto_usd_max')) {
-            $query->where('total_usd', '<=', $request->monto_usd_max);
-        }
-
-        // 💰 Filtro por montos ARS
-        if ($request->filled('monto_ars_min')) {
-            $query->where('total_ars', '>=', $request->monto_ars_min);
-        }
-        if ($request->filled('monto_ars_max')) {
-            $query->where('total_ars', '<=', $request->monto_ars_max);
+        // 💵 Filtro por total USD
+        if ($request->filled('usd_filtro')) {
+            if ($request->usd_filtro === 'mayor') {
+                $query->where('total_usd', '>=', $request->usd_valor);
+            } elseif ($request->usd_filtro === 'menor') {
+                $query->where('total_usd', '<=', $request->usd_valor);
+            } elseif ($request->usd_filtro === 'entre') {
+                $query->whereBetween('total_usd', [$request->usd_desde, $request->usd_hasta]);
+            }
         }
 
-        $compras = $query->get();
+        // 💰 Filtro por total ARS
+        if ($request->filled('ars_filtro')) {
+            if ($request->ars_filtro === 'mayor') {
+                $query->where('total_ars', '>=', $request->ars_valor);
+            } elseif ($request->ars_filtro === 'menor') {
+                $query->where('total_ars', '<=', $request->ars_valor);
+            } elseif ($request->ars_filtro === 'entre') {
+                $query->whereBetween('total_ars', [$request->ars_desde, $request->ars_hasta]);
+            }
+        }
 
-        // 🔹 Totales según los resultados filtrados
-        $totalUsd = $compras->sum('total_usd');
-        $totalArs = $compras->sum('total_ars');
+        $compras = $query->with('detalles.producto')->get();
+        $proveedores = Compra::select('proveedor')->distinct()->pluck('proveedor');
 
-        return view('compras.index', compact('compras', 'totalUsd', 'totalArs'));
+        return view('compras.index', compact('compras', 'proveedores'));
     }
 
-    // Mostrar formulario de nueva compra
+    // 🆕 Mostrar formulario de creación
     public function create()
     {
-        $productos = Producto::orderBy('nombre')->get();
-        return view('compras.create', compact('productos'));
+        $productos = \App\Models\Producto::orderBy('nombre')->get();
+    $categorias = \App\Models\Categoria::orderBy('nombre')->get();
+    return view('compras.create', compact('productos', 'categorias'));
     }
 
-    // Guardar nueva compra
+    // 💾 Guardar nueva compra
     public function store(Request $request)
     {
         $request->validate([
             'fecha' => 'required|date|before_or_equal:today',
-            'cotizacion_dolar' => 'required|numeric',
+            'cotizacion_dolar' => 'required|numeric|min:0',
             'productos' => 'required|array|min:1',
             'productos.*.id' => 'required|exists:productos,id',
             'productos.*.cantidad' => 'required|integer|min:1',
@@ -81,7 +96,6 @@ class CompraController extends Controller
                 'fecha' => $request->fecha,
                 'total_usd' => 0,
                 'total_ars' => 0,
-                'observaciones' => $request->observaciones,
             ]);
 
             foreach ($request->productos as $item) {
@@ -98,14 +112,11 @@ class CompraController extends Controller
                     'precio_unitario_ars' => $item['precio_unitario_usd'] * $request->cotizacion_dolar,
                 ]);
 
-                // Actualizar stock del producto
                 $producto->increment('stock', $item['cantidad']);
-
                 $totalUsd += $subtotalUsd;
                 $totalArs += $subtotalArs;
             }
 
-            // Actualizar totales de la compra
             $compra->update([
                 'total_usd' => $totalUsd,
                 'total_ars' => $totalArs,
@@ -115,7 +126,7 @@ class CompraController extends Controller
         return redirect()->route('compras.index')->with('success', 'Compra registrada correctamente.');
     }
 
-    // Mostrar formulario de edición
+    // ✏️ Editar compra
     public function edit(Compra $compra)
     {
         $productos = Producto::orderBy('nombre')->get();
@@ -123,16 +134,15 @@ class CompraController extends Controller
         return view('compras.edit', compact('compra', 'productos'));
     }
 
-    // Actualizar compra
+    // 🔄 Actualizar compra
     public function update(Request $request, Compra $compra)
     {
         $request->validate([
             'fecha' => 'required|date|before_or_equal:today',
-            'cotizacion_dolar' => 'required|numeric',
+            'cotizacion_dolar' => 'required|numeric|min:0',
         ]);
 
         DB::transaction(function () use ($request, $compra) {
-            // Revertir stock anterior
             foreach ($compra->detalles as $detalle) {
                 $detalle->producto->decrement('stock', $detalle->cantidad);
                 $detalle->delete();
@@ -156,7 +166,6 @@ class CompraController extends Controller
                 ]);
 
                 $producto->increment('stock', $item['cantidad']);
-
                 $totalUsd += $subtotalUsd;
                 $totalArs += $subtotalArs;
             }
@@ -166,23 +175,20 @@ class CompraController extends Controller
                 'cotizacion_dolar' => $request->cotizacion_dolar,
                 'total_usd' => $totalUsd,
                 'total_ars' => $totalArs,
-                'observaciones' => $request->observaciones,
+                'proveedor' => $request->proveedor,
             ]);
         });
 
         return redirect()->route('compras.index')->with('success', 'Compra actualizada correctamente.');
     }
 
-    // Eliminar compra definitivamente
+    // 🗑️ Eliminar compra
     public function destroy(Compra $compra)
     {
         DB::transaction(function () use ($compra) {
-            // 🔹 Revertir stock antes de eliminar
             foreach ($compra->detalles as $detalle) {
                 $detalle->producto->decrement('stock', $detalle->cantidad);
             }
-
-            // 🔹 Eliminar detalles y la compra
             $compra->detalles()->delete();
             $compra->delete();
         });

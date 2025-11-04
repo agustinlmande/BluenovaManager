@@ -13,6 +13,10 @@ use App\Http\Controllers\CategoriaController;
 
 Route::resource('categorias', CategoriaController::class);
 
+Route::post('/productos/crear-rapido', [App\Http\Controllers\ProductoController::class, 'storeAjax'])
+    ->name('productos.storeAjax');
+
+
 
 // =====================
 // 🔹 RUTAS DE COTIZACION

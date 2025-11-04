@@ -96,6 +96,41 @@ class ProductoController extends Controller
         return redirect()->route('productos.index')->with('success', 'Producto creado correctamente.');
     }
 
+    public function storeAjax(Request $request)
+{
+    $request->validate([
+        'nombre' => 'required|string|max:255',
+        'categoria_id' => 'required|exists:categorias,id',
+        'precio_compra_usd' => 'required|numeric|min:0',
+        'cotizacion_compra' => 'required|numeric|min:0',
+        'precio_venta_ars' => 'nullable|numeric|min:0',
+        'precio_venta_usd' => 'nullable|numeric|min:0',
+        'porcentaje_ganancia' => 'nullable|numeric|min:0',
+        'stock' => 'nullable|integer|min:0',
+    ]);
+
+    $precio_compra_ars = $request->precio_compra_usd * $request->cotizacion_compra;
+
+    $producto = Producto::create([
+        'nombre' => $request->nombre,
+        'categoria_id' => $request->categoria_id,
+        'descripcion' => $request->descripcion,
+        'stock' => $request->stock ?? 0,
+        'precio_compra_usd' => $request->precio_compra_usd,
+        'cotizacion_compra' => $request->cotizacion_compra,
+        'precio_compra_ars' => $precio_compra_ars,
+        'precio_venta_usd' => $request->precio_venta_usd ?? 0,
+        'precio_venta_ars' => $request->precio_venta_ars ?? 0,
+        'porcentaje_ganancia' => $request->porcentaje_ganancia ?? 0,
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'producto' => $producto,
+    ]);
+}
+
+
     // Mostrar formulario de edición
     public function edit(Producto $producto)
     {
