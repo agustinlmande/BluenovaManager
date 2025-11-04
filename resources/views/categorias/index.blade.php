@@ -3,8 +3,15 @@
 @section('content')
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1>Categorías</h1>
-        <a href="{{ route('categorias.create') }}" class="btn btn-primary">+ Nueva categoría</a>
+        <h1 class="m-0">Categorías</h1>
+        <div class="d-flex gap-2">
+            <a href="{{ route('categorias.create') }}" class="btn btn-primary">
+                + Nueva categoría
+            </a>
+            <a href="{{ route('productos.index') }}" class="btn btn-secondary">
+                Regresar
+            </a>
+        </div>
     </div>
 
     @if (session('success'))
@@ -36,5 +43,6 @@
             @endforeach
         </tbody>
     </table>
+
 </div>
 @endsection
