@@ -12,35 +12,31 @@ class Venta extends Model
     protected $table = 'ventas';
 
     protected $fillable = [
-        'cliente_id',
-        'vendedor_id',
-        'vendedor_nombre',              // 👈 nuevo
-        'porcentaje_comision_vendedor', // 👈 nuevo
         'fecha',
+        'vendedor_id',
+        'vendedor_nombre',
+        'porcentaje_comision_vendedor',
         'cotizacion_dolar',
-        'total_venta_ars',
-        'total_venta_usd',
         'tipo_entrega',
         'costo_envio',
         'metodo_pago',
+        'total_venta_ars',
+        'total_venta_usd',
+        'ganancia_ars', // ✅ NUEVO: ganancia total de la venta
         'observaciones',
         'monto_pagado',
         'saldo_pendiente',
         'estado_pago',
     ];
 
-    public function vendedor()
-    {
-        return $this->belongsTo(Vendedor::class, 'vendedor_id');
-    }
-
+    // 🔹 Relaciones
     public function detalles()
     {
         return $this->hasMany(DetalleVenta::class, 'venta_id');
     }
 
-    public function pagosVendedor()
+    public function vendedor()
     {
-        return $this->hasMany(PagoVendedor::class, 'venta_id');
+        return $this->belongsTo(Vendedor::class, 'vendedor_id');
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Producto;
 use App\Models\HistorialPrecio; // 🟩 Importante: agregado
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Caja;
 
 class CompraController extends Controller
 {

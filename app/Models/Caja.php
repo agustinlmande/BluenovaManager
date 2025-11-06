@@ -9,7 +9,7 @@ class Caja extends Model
 {
     use HasFactory;
 
-    protected $table = 'caja';
+    protected $table = 'caja'; // o 'caja' según tu migración
 
     protected $fillable = [
         'tipo',
@@ -18,4 +18,6 @@ class Caja extends Model
         'fecha',
         'editable',
     ];
+
+    public $timestamps = true; // o false si no tenés created_at
 }

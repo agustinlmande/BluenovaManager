@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Reporte de estadísticas - Bluenova</title>
+    <title>Reporte financiero - Bluenova</title>
     <style>
         body {
             font-family: DejaVu Sans, sans-serif;
@@ -76,10 +76,11 @@
     <img src="{{ public_path('images/logo_bluenova.png') }}" alt="Bluenova Logo">
     <div>
         <h1>Bluenova Import</h1>
-        <p class="subtitulo">Gestión y estadísticas de ventas</p>
+        <p class="subtitulo">Gestión y estadísticas financieras</p>
     </div>
 </header>
 
+{{-- 🔹 Información general --}}
 <div class="info">
     <p><strong>Fecha de generación:</strong> {{ now()->format('d/m/Y H:i') }}</p>
     @if($desde && $hasta)
@@ -90,6 +91,50 @@
     <p><strong>Última cotización USD:</strong> {{ $ultimaCotizacion->valor_usd ?? 'Sin datos' }}</p>
 </div>
 
+{{-- 🔹 Resumen financiero --}}
+<h2>💼 Resumen financiero</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Concepto</th>
+            <th>Monto (ARS)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>💵 Total en caja</td>
+            <td>${{ number_format($totalEnCaja ?? 0, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td>💰 Ganancia neta estimada</td>
+            <td>${{ number_format($gananciaEstimacion ?? 0, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td>🧾 Pendiente de cobro</td>
+            <td>${{ number_format($totalPendiente ?? 0, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td>📦 Total de compras</td>
+            <td>${{ number_format($totalCompras ?? 0, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td>📈 Total de ingresos (manuales)</td>
+            <td>${{ number_format($totalIngresos ?? 0, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td>📉 Total de egresos (manuales)</td>
+            <td>${{ number_format($totalEgresos ?? 0, 2, ',', '.') }}</td>
+        </tr>
+    </tbody>
+    <tfoot>
+        <tr>
+            <td><strong>Saldo financiero total</strong></td>
+            <td><strong>${{ number_format(($totalEnCaja ?? 0) + ($gananciaEstimacion ?? 0), 2, ',', '.') }}</strong></td>
+        </tr>
+    </tfoot>
+</table>
+
+{{-- 🔹 Ventas mensuales --}}
 <h2>📈 Ventas mensuales</h2>
 @if($ventasMensuales->count() > 0)
 <table>
@@ -118,6 +163,7 @@
 <p>No hay ventas registradas en este período.</p>
 @endif
 
+{{-- 🔹 Ganancia mensual real --}}
 <h2>💰 Ganancia mensual real</h2>
 @if($gananciaMensual->count() > 0)
 <table>
@@ -146,6 +192,7 @@
 <p>No hay registros de ganancias en este período.</p>
 @endif
 
+{{-- 🔹 Pie de página --}}
 <div class="footer">
     <p>© {{ date('Y') }} Bluenova Import — Reporte generado automáticamente desde el sistema de gestión.</p>
 </div>

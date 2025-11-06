@@ -10,6 +10,11 @@ use App\Http\Controllers\ReporteExportController;
 use App\Http\Controllers\CotizacionDolarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\CajaController;
+
+Route::resource('caja', CajaController::class);
+
+
 
 Route::post('/productos/store-ajax', [App\Http\Controllers\ProductoController::class, 'storeAjax'])->name('productos.storeAjax');
 

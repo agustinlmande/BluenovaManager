@@ -16,42 +16,59 @@ class ReporteExportController extends Controller
 {
     // 📄 Exportar reporte de estadísticas a PDF
     public function exportPdf(Request $request)
-    {
-        $desde = $request->input('fecha_desde');
-        $hasta = $request->input('fecha_hasta');
+{
+    $desde = $request->input('fecha_desde');
+    $hasta = $request->input('fecha_hasta');
 
-        // Ventas mensuales
-        $ventasMensuales = Venta::select(
-                DB::raw('DATE_FORMAT(fecha, "%Y-%m") as mes'),
-                DB::raw('SUM(total_venta_ars) as total_ars')
-            )
-            ->when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
-            ->groupBy('mes')
-            ->orderBy('mes', 'asc')
-            ->get();
+    // Ventas mensuales
+    $ventasMensuales = Venta::select(
+            DB::raw('DATE_FORMAT(fecha, "%Y-%m") as mes'),
+            DB::raw('SUM(total_venta_ars) as total_ars')
+        )
+        ->when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
+        ->groupBy('mes')
+        ->orderBy('mes', 'asc')
+        ->get();
 
-        // Ganancia mensual
-        $gananciaMensual = DetalleVenta::select(
-                DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
-                DB::raw('SUM(ganancia_ars) as total_ganancia')
-            )
-            ->when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))
-            ->groupBy('mes')
-            ->orderBy('mes', 'asc')
-            ->get();
+    // Ganancia mensual
+    $gananciaMensual = DetalleVenta::select(
+            DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
+            DB::raw('SUM(ganancia_ars) as total_ganancia')
+        )
+        ->when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))
+        ->groupBy('mes')
+        ->orderBy('mes', 'asc')
+        ->get();
 
-        $ultimaCotizacion = CotizacionDolar::latest()->first();
+    // 🔹 Nuevos datos
+    $totalCompras = \App\Models\Compra::sum('total_ars');
+    $caja = \App\Models\Caja::all();
+    $totalIngresos = $caja->where('tipo', 'ingreso')->sum('monto');
+    $totalEgresos  = $caja->where('tipo', 'egreso')->sum('monto');
+    $totalEnCaja   = $totalIngresos - $totalEgresos;
+    $totalPendiente = \App\Models\Venta::where('estado_pago', 'pendiente')->sum('saldo_pendiente');
+    $gananciaTotal = DetalleVenta::sum('ganancia_ars');
+    $gananciaEstimacion = $gananciaTotal - $totalCompras;
 
-        $pdf = Pdf::loadView('reportes.pdf', compact(
-            'ventasMensuales',
-            'gananciaMensual',
-            'ultimaCotizacion',
-            'desde',
-            'hasta'
-        ));
+    $ultimaCotizacion = \App\Models\CotizacionDolar::latest()->first();
 
-        return $pdf->download('reporte_estadisticas.pdf');
-    }
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reportes.pdf', compact(
+        'ventasMensuales',
+        'gananciaMensual',
+        'ultimaCotizacion',
+        'desde',
+        'hasta',
+        'totalEnCaja',
+        'totalPendiente',
+        'totalCompras',
+        'totalIngresos',
+        'totalEgresos',
+        'gananciaTotal',
+        'gananciaEstimacion'
+    ));
+
+    return $pdf->download('reporte_estadisticas.pdf');
+}
 
     // 📊 Exportar a Excel con encabezado de empresa, fecha y rango
     public function exportExcel(Request $request)

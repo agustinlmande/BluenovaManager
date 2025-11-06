@@ -49,6 +49,7 @@ class VentaController extends Controller
         DB::transaction(function () use ($request) {
             $totalArs = 0;
             $totalUsd = 0;
+            $gananciaTotal = 0;
 
             // Vendedor y datos congelados
             $vendedorNombre = null;
@@ -74,6 +75,7 @@ class VentaController extends Controller
                 'metodo_pago' => $request->metodo_pago,
                 'total_venta_ars' => 0,
                 'total_venta_usd' => 0,
+                'ganancia_ars' => 0, // 🔹 agregado
                 'observaciones' => $request->observaciones,
                 'monto_pagado' => 0,
                 'saldo_pendiente' => 0,
@@ -94,17 +96,18 @@ class VentaController extends Controller
                 // Reducir stock
                 $producto->decrement('stock', $cantidad);
 
-                // Ganancia bruta (sin comisión)
+                // Ganancia bruta
                 $costoTotalCompra = $producto->precio_compra_ars * $cantidad;
                 $gananciaBruta = $subtotalArs - $costoTotalCompra;
 
-                // Comisión del vendedor para este detalle
+                // Comisión del vendedor
                 $comision = 0;
                 if ($request->vendedor_id && $porcentajeComision !== null) {
                     $comision = ($subtotalArs * $porcentajeComision) / 100;
                 }
 
                 $gananciaNeta = $gananciaBruta - $comision;
+                $gananciaTotal += $gananciaNeta; // 🔹 acumulamos ganancia total
 
                 DetalleVenta::create([
                     'venta_id' => $venta->id,
@@ -131,13 +134,14 @@ class VentaController extends Controller
             $saldoPendiente = max(0, $totalArs - $montoPagado);
             $estadoPago = $saldoPendiente > 0 ? 'pendiente' : 'pagado';
 
-            // Actualizamos la venta
+            // ✅ Actualizamos la venta con totales y ganancia
             $venta->update([
                 'total_venta_ars' => $totalArs,
                 'total_venta_usd' => $totalUsd,
-                'monto_pagado' => $montoPagado,
+                'ganancia_ars'    => $gananciaTotal, // 🔹 ahora se guarda la ganancia real
+                'monto_pagado'    => $montoPagado,
                 'saldo_pendiente' => $saldoPendiente,
-                'estado_pago' => $estadoPago,
+                'estado_pago'     => $estadoPago,
             ]);
         });
 
@@ -159,39 +163,35 @@ class VentaController extends Controller
     }
 
     // 🔹 Actualizar venta (solo pagos)
-    // 🔹 Actualizar venta (pagos)
-public function update(Request $request, Venta $venta)
-{
-    $request->validate([
-        'monto_pagado'    => 'required|numeric|min:0',
-        'saldo_pendiente' => 'required|numeric|min:0',
-        'estado_pago'     => 'required|in:pagado,pendiente',
-    ]);
+    public function update(Request $request, Venta $venta)
+    {
+        $request->validate([
+            'monto_pagado'    => 'required|numeric|min:0',
+            'saldo_pendiente' => 'required|numeric|min:0',
+            'estado_pago'     => 'required|in:pagado,pendiente',
+        ]);
 
-    $total        = (float) $venta->total_venta_ars;
-    $montoPagado  = (float) $request->monto_pagado;
-    $saldo        = (float) $request->saldo_pendiente;
+        $total       = (float) $venta->total_venta_ars;
+        $montoPagado = (float) $request->monto_pagado;
+        $saldo       = (float) $request->saldo_pendiente;
 
-    // seguridad: normalizamos por si algo viene raro
-    if ($montoPagado > $total) {
-        $montoPagado = $total;
-        $saldo = 0;
-    } else {
-        $saldo = max(0, $total - $montoPagado);
+        if ($montoPagado > $total) {
+            $montoPagado = $total;
+            $saldo = 0;
+        } else {
+            $saldo = max(0, $total - $montoPagado);
+        }
+
+        $estadoPago = $saldo > 0 ? 'pendiente' : 'pagado';
+
+        $venta->update([
+            'monto_pagado'    => $montoPagado,
+            'saldo_pendiente' => $saldo,
+            'estado_pago'     => $estadoPago,
+        ]);
+
+        return redirect()->route('ventas.index')->with('success', 'Venta actualizada correctamente.');
     }
-
-    $estadoPago = $saldo > 0 ? 'pendiente' : 'pagado';
-
-    $venta->update([
-        'monto_pagado'    => $montoPagado,
-        'saldo_pendiente' => $saldo,
-        'estado_pago'     => $estadoPago,
-    ]);
-
-    return redirect()->route('ventas.index')->with('success', 'Venta actualizada correctamente.');
-}
-
-
 
     // 🔹 Eliminar venta (restaura stock)
     public function destroy(Venta $venta)
