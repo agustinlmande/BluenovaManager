@@ -45,7 +45,7 @@
                 <td>{{ $venta->tipo_entrega ?? '-' }}</td>
                 <td>
                     <a href="{{ route('ventas.show', $venta->id) }}" class="btn btn-sm btn-secondary">Ver / Imprimir</a>
-                    <a href="{{ route('ventas.edit', $venta->id) }}" class="btn btn-sm btn-primary">Editar</a>
+                    <a href="{{ route('ventas.edit', $venta->id) }}" class="btn btn-sm btn-warning">Editar</a>
                     <form action="{{ route('ventas.destroy', $venta->id) }}" method="POST" style="display:inline-block"
                         onsubmit="return confirm('¿Seguro que deseas eliminar esta venta?');">
                         @csrf

@@ -4,7 +4,7 @@
 <div class="container">
     <h1>Vendedores</h1>
 
-    <a href="{{ route('vendedores.create') }}" class="btn btn-success mb-3">+ Nuevo vendedor</a>
+    <a href="{{ route('vendedores.create') }}" class="btn btn-primary mb-3"> Nuevo vendedor</a>
 
     @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>

@@ -159,25 +159,39 @@ class VentaController extends Controller
     }
 
     // 🔹 Actualizar venta (solo pagos)
-    public function update(Request $request, Venta $venta)
-    {
-        $request->validate([
-            'monto_pagado' => 'required|numeric|min:0',
-        ]);
+    // 🔹 Actualizar venta (pagos)
+public function update(Request $request, Venta $venta)
+{
+    $request->validate([
+        'monto_pagado'    => 'required|numeric|min:0',
+        'saldo_pendiente' => 'required|numeric|min:0',
+        'estado_pago'     => 'required|in:pagado,pendiente',
+    ]);
 
-        $montoPagado = (float) $request->monto_pagado;
-        $total = (float) $venta->total_venta_ars;
-        $saldoPendiente = max(0, $total - $montoPagado);
-        $estadoPago = $saldoPendiente > 0 ? 'pendiente' : 'pagado';
+    $total        = (float) $venta->total_venta_ars;
+    $montoPagado  = (float) $request->monto_pagado;
+    $saldo        = (float) $request->saldo_pendiente;
 
-        $venta->update([
-            'monto_pagado' => $montoPagado,
-            'saldo_pendiente' => $saldoPendiente,
-            'estado_pago' => $estadoPago,
-        ]);
-
-        return redirect()->route('ventas.index')->with('success', 'Venta actualizada correctamente.');
+    // seguridad: normalizamos por si algo viene raro
+    if ($montoPagado > $total) {
+        $montoPagado = $total;
+        $saldo = 0;
+    } else {
+        $saldo = max(0, $total - $montoPagado);
     }
+
+    $estadoPago = $saldo > 0 ? 'pendiente' : 'pagado';
+
+    $venta->update([
+        'monto_pagado'    => $montoPagado,
+        'saldo_pendiente' => $saldo,
+        'estado_pago'     => $estadoPago,
+    ]);
+
+    return redirect()->route('ventas.index')->with('success', 'Venta actualizada correctamente.');
+}
+
+
 
     // 🔹 Eliminar venta (restaura stock)
     public function destroy(Venta $venta)
