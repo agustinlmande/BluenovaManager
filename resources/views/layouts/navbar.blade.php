@@ -13,8 +13,9 @@
                 <li class="nav-item"><a class="nav-link text-white" href="{{ route('productos.index') }}"><i class="fa-solid fa-box"></i> Productos</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="{{ route('compras.index') }}"><i class="fa-solid fa-cart-arrow-down"></i> Compras</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="{{ route('ventas.index') }}"><i class="fa-solid fa-cash-register"></i> Ventas</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="{{ route('vendedores.index') }}"><i class="fa-solid fa-user-tie"></i>Vendedores</a></li>
                 <li class="nav-item"><a class="nav-link text-white" href="{{ route('reportes.index') }}"><i class="fa-solid fa-chart-line"></i> Reportes</a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="{{ route('cotizacion.index') }}"><i class="fa-solid fa-dollar-sign"></i> Cotización</a></li>
+                <!--<li class="nav-item"><a class="nav-link text-white" href="{{ route('cotizacion.index') }}"><i class="fa-solid fa-dollar-sign"></i> Cotización</a></li> -->
             </ul>
 
             <ul class="navbar-nav">
