@@ -5,10 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-
-
-
-
 class Venta extends Model
 {
     use HasFactory;
@@ -18,6 +14,8 @@ class Venta extends Model
     protected $fillable = [
         'cliente_id',
         'vendedor_id',
+        'vendedor_nombre',              // 👈 nuevo
+        'porcentaje_comision_vendedor', // 👈 nuevo
         'fecha',
         'cotizacion_dolar',
         'total_venta_ars',
@@ -30,7 +28,6 @@ class Venta extends Model
         'saldo_pendiente',
         'estado_pago',
     ];
-
 
     public function vendedor()
     {
