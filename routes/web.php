@@ -11,6 +11,13 @@ use App\Http\Controllers\CotizacionDolarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CategoriaController;
 
+Route::post('/productos/store-ajax', [App\Http\Controllers\ProductoController::class, 'storeAjax'])->name('productos.storeAjax');
+
+
+Route::delete('/compras/detalle/{id}', [CompraController::class, 'removeItem'])->name('compras.removeItem');
+
+Route::post('/categorias/store-ajax', [App\Http\Controllers\CategoriaController::class, 'storeAjax'])->name('categorias.storeAjax');
+
 Route::resource('categorias', CategoriaController::class);
 
 Route::post('/productos/crear-rapido', [App\Http\Controllers\ProductoController::class, 'storeAjax'])

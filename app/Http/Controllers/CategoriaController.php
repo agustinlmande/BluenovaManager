@@ -53,4 +53,20 @@ class CategoriaController extends Controller
         $categoria->delete();
         return redirect()->route('categorias.index')->with('success', 'Categoría eliminada correctamente.');
     }
+
+    public function storeAjax(Request $request)
+    {
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:categorias,nombre',
+        ]);
+
+        $categoria = \App\Models\Categoria::create([
+            'nombre' => $request->nombre,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'categoria' => $categoria,
+        ]);
+    }
 }

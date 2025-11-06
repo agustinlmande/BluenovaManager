@@ -70,79 +70,81 @@
     @endif
 
     {{-- 🧾 Tabla de productos --}}
-    <table class="table table-striped mt-3">
+    <table class="table table-striped align-middle">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Nombre</th>
-                <th class="text-center align-middle">
-                    <div class="d-flex align-items-center gap-2 ">
-                        <span class="fw-semibold mb-0">Categoría</span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
-                            data-bs-toggle="modal" data-bs-target="#modalFiltroCategoria">
-                            <i class="bi bi-funnel">Filtrar</i>
-                        </button>
-                    </div>
-                </th>
+                <th>Categoría</th>
                 <th>Stock</th>
                 <th>Precio Venta (ARS)</th>
+                <th>Precio Compra (USD)</th>
+                <th>Precio Venta (USD)</th>
+                <th>% Ganancia</th>
                 <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($productos as $producto)
+            @forelse($productos as $producto)
             <tr>
                 <td>{{ $producto->id }}</td>
                 <td>{{ $producto->nombre }}</td>
                 <td>{{ $producto->categoria->nombre ?? '-' }}</td>
                 <td>{{ $producto->stock }}</td>
-                <td>${{ number_format($producto->precio_venta_ars, 2, ',', '.') }}</td>
-                <td>
-                    <a href="{{ route('productos.edit', $producto) }}" class="btn btn-warning btn-sm">Editar</a>
+                <td>$ {{ number_format($producto->precio_venta_ars, 2, ',', '.') }}</td>
+                <td>U$D {{ number_format($producto->precio_compra_usd, 2, ',', '.') }}</td>
+                <td>U$D {{ number_format($producto->precio_venta_usd, 2, ',', '.') }}</td>
+                <td>{{ number_format($producto->porcentaje_ganancia, 2, ',', '.') }}%</td>
+                <td class="text-nowrap">
+                    <a href="{{ route('productos.edit', $producto) }}" class="btn btn-sm btn-warning">Editar</a>
                     <form action="{{ route('productos.destroy', $producto) }}" method="POST" style="display:inline">
                         @csrf
                         @method('DELETE')
-                        <button class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar producto?')">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar producto?')">
                             Eliminar
                         </button>
                     </form>
                 </td>
             </tr>
-            @endforeach
+            @empty
+            <tr>
+                <td colspan="9" class="text-center">No hay productos registrados</td>
+            </tr>
+            @endforelse
         </tbody>
     </table>
-</div>
 
-<!-- Modal Filtro Categoría -->
-<div class="modal fade" id="modalFiltroCategoria" tabindex="-1" aria-labelledby="modalFiltroCategoriaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalFiltroCategoriaLabel">Filtrar por categoría</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body text-center">
-                <form method="GET" action="{{ route('productos.index') }}">
-                    {{-- Mantener búsqueda activa si existe --}}
-                    @if(request('buscar'))
-                    <input type="hidden" name="buscar" value="{{ request('buscar') }}">
-                    @endif
 
-                    <select name="categoria_id" class="form-select mb-3 text-center" onchange="this.form.submit()">
-                        <option value="">Todas</option>
-                        @foreach($categorias as $cat)
-                        <option value="{{ $cat->id }}" {{ request('categoria_id') == $cat->id ? 'selected' : '' }}>
-                            {{ $cat->nombre }}
-                        </option>
-                        @endforeach
-                    </select>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+    <!-- Modal Filtro Categoría -->
+    <div class="modal fade" id="modalFiltroCategoria" tabindex="-1" aria-labelledby="modalFiltroCategoriaLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalFiltroCategoriaLabel">Filtrar por categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <form method="GET" action="{{ route('productos.index') }}">
+                        {{-- Mantener búsqueda activa si existe --}}
+                        @if(request('buscar'))
+                        <input type="hidden" name="buscar" value="{{ request('buscar') }}">
+                        @endif
+
+                        <select name="categoria_id" class="form-select mb-3 text-center" onchange="this.form.submit()">
+                            <option value="">Todas</option>
+                            @foreach($categorias as $cat)
+                            <option value="{{ $cat->id }}" {{ request('categoria_id') == $cat->id ? 'selected' : '' }}>
+                                {{ $cat->nombre }}
+                            </option>
+                            @endforeach
+                        </select>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-@endsection
+    @endsection

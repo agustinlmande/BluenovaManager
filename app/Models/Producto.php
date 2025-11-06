@@ -17,18 +17,18 @@ class Producto extends Model
 
     protected $fillable = [
         'nombre',
-        'categoria_id',
         'descripcion',
-        'imagen',
+        'categoria_id',
         'stock',
         'precio_compra_usd',
         'cotizacion_compra',
         'precio_compra_ars',
+        'envio_ars',
         'precio_venta_usd',
         'precio_venta_ars',
         'porcentaje_ganancia',
-        'modo_calculo'
     ];
+
 
     public function categoria()
     {
