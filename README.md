@@ -82,15 +82,8 @@ Ejemplos:
 
 Cada consulta puede ejecutarse directamente desde phpMyAdmin o exportarse a Excel.
 
-8. Buenas prácticas y recomendaciones
-• Guardar envío como costo por unidad.
-• No aplicar comisión sobre envío.
-• Mantener cotizaciones actualizadas.
-• Registrar movimientos de caja correctamente.
-• Documentar cambios de versión.
-
-9. Historial de versiones
+8. Historial de versiones
 v1.0 — Noviembre 2025
 - Versión inicial completa del sistema.
-- Módulos: Productos, Compras, Ventas, Caja, Reportes.
+- Módulos: Productos, Compras, Ventas, Vendedores, Caja, Reportes.
 - Correcciones en cálculos de comisión y envío.
