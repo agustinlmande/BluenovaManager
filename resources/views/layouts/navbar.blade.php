@@ -1,12 +1,10 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
     <div class="container-fluid">
-        <a class="navbar-brand fw-bold text-white" href="{{ route('dashboard') }}">
-            <i class="fa-solid fa-cube me-1"></i> Bluenova Manager
+        <a class="navbar-brand d-flex align-items-center text-white fw-bold" href="{{ route('dashboard') }}">
+            <img src="{{ asset('images/logo_bn.png') }}" alt="Bluenova Logo"
+                style="height: 55px; width: auto; margin-right: 12px;">
         </a>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
 
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
