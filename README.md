@@ -1,4 +1,5 @@
 BLUENOVA MANAGER — DOCUMENTACIÓN TÉCNICA
+
 Versión: 1.0
 Autor: Agustín Leonardo Mande
 Fecha: Noviembre 2025
