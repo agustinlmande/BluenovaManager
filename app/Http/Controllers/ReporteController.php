@@ -9,6 +9,7 @@ use App\Models\Caja;
 use App\Models\CotizacionDolar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\CajaController;
 
 class ReporteController extends Controller
 {
@@ -20,9 +21,9 @@ class ReporteController extends Controller
 
         // 🔹 Ventas mensuales
         $ventasMensuales = Venta::select(
-                DB::raw('DATE_FORMAT(fecha, "%Y-%m") as mes'),
-                DB::raw('SUM(total_venta_ars) as total_ars')
-            )
+            DB::raw('DATE_FORMAT(fecha, "%Y-%m") as mes'),
+            DB::raw('SUM(total_venta_ars) as total_ars')
+        )
             ->when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
             ->groupBy('mes')
             ->orderBy('mes', 'asc')
@@ -30,6 +31,7 @@ class ReporteController extends Controller
 
         // 🔹 Top productos
         $productosMasVendidos = DetalleVenta::select('producto_id', DB::raw('SUM(cantidad) as total_vendidos'))
+            ->when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))
             ->groupBy('producto_id')
             ->orderByDesc('total_vendidos')
             ->take(5)
@@ -54,9 +56,9 @@ class ReporteController extends Controller
 
         // 🔹 Ganancia mensual real
         $gananciaMensual = DetalleVenta::select(
-                DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
-                DB::raw('SUM(ganancia_ars) as total_ganancia')
-            )
+            DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
+            DB::raw('SUM(ganancia_ars) as total_ganancia')
+        )
             ->when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))
             ->groupBy('mes')
             ->orderBy('mes', 'asc')
@@ -68,16 +70,28 @@ class ReporteController extends Controller
         $totalIngresos = $movimientosCaja->where('tipo', 'ingreso')->sum('monto');
         $totalEgresos  = $movimientosCaja->where('tipo', 'egreso')->sum('monto');
 
-        // El saldo actual lo tomamos del último registro en caja
-        $saldoActual = Caja::latest('fecha')->first()->saldo ?? 0;
+        // 🔹 Totales filtrados correctamente
+        $totalVentas  = Venta::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
+            ->sum('total_venta_ars');
 
-        // 🔹 Otros totales
-        $totalVentas     = Venta::sum('total_venta_ars');
-        $totalCompras    = Compra::sum('total_ars');
-        $totalPendiente  = Venta::where('estado_pago', 'pendiente')->sum('saldo_pendiente');
+        $totalCompras = Compra::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
+            ->sum('total_ars');
+
+        // 🔹 Saldo actual total (sin filtrar, para mostrar la realidad de la caja)
+        $saldoActual = Caja::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
+            ->orderByDesc('fecha')
+            ->value('saldo_actual') ?? 0;
+
+
+        // 🔹 Pendiente de cobro (solo dentro del rango si hay filtro)
+        $totalPendiente = Venta::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
+            ->where('estado_pago', 'pendiente')
+            ->sum('saldo_pendiente');
+
+        // 🔹 Última cotización (sin filtrar)
         $ultimaCotizacion = CotizacionDolar::latest()->first();
 
-        // 🔹 Ganancia estimada = solo las ganancias registradas
+        // 🔹 Ganancia estimada = solo las ganancias registradas (filtradas)
         $gananciaEstimacion = $gananciaTotal;
 
         return view('reportes.index', compact(

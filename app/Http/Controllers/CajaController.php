@@ -118,11 +118,10 @@ class CajaController extends Controller
         $deudaClientes = Venta::where('estado_pago', 'pendiente')->sum('saldo_pendiente');
 
         // 🔸 GANANCIA REAL (desde ventas)
-        // Usa el campo ganancia_ars si existe
-        $gananciaReal = Venta::sum('ganancia_ars');
-        if (!$gananciaReal) {
-            $gananciaReal = 0;
-        }
+        $gananciaReal = Venta::sum('ganancia_ars') ?: 0;
+
+        // ✅ Guardar el saldo actual calculado en la base
+        Caja::query()->update(['saldo_actual' => $saldoFinal]);
 
         return view('caja.index', [
             'todos'            => $todosOrdenados,
@@ -131,7 +130,7 @@ class CajaController extends Controller
             'totalEgresos'     => $totalEgresos,
             'totalVentas'      => $totalVentas,
             'totalCompras'     => $totalCompras,
-            'gananciaEstimada' => $gananciaReal, // 🔹 ahora muestra ganancia real
+            'gananciaEstimada' => $gananciaReal,
             'deudaClientes'    => $deudaClientes,
         ]);
     }
@@ -164,6 +163,10 @@ class CajaController extends Controller
             'fecha'    => $fecha,
             'editable' => true,
         ]);
+
+        // ✅ Recalcular el saldo actual después de guardar
+        $saldoActual = self::obtenerSaldoActual();
+        Caja::query()->latest('id')->update(['saldo_actual' => $saldoActual]);
 
         return redirect()->route('caja.index')->with('success', 'Movimiento registrado correctamente.');
     }
@@ -204,6 +207,10 @@ class CajaController extends Controller
             'fecha'  => $fecha,
         ]);
 
+        // ✅ Actualizar saldo_actual
+        $saldoActual = self::obtenerSaldoActual();
+        Caja::query()->latest('id')->update(['saldo_actual' => $saldoActual]);
+
         return redirect()->route('caja.index')->with('success', 'Movimiento actualizado correctamente.');
     }
 
@@ -218,6 +225,34 @@ class CajaController extends Controller
 
         $caja->delete();
 
+        // ✅ Actualizar saldo_actual después de borrar
+        $saldoActual = self::obtenerSaldoActual();
+        Caja::query()->latest('id')->update(['saldo_actual' => $saldoActual]);
+
         return redirect()->route('caja.index')->with('success', 'Movimiento eliminado correctamente.');
+    }
+
+    // =============================
+    // CÁLCULO DEL SALDO ACTUAL
+    // =============================
+    public static function obtenerSaldoActual()
+    {
+        $saldo = 0;
+
+        // Movimientos manuales
+        $movimientos = \App\Models\Caja::all();
+        foreach ($movimientos as $mov) {
+            if ($mov->tipo === 'ingreso') {
+                $saldo += $mov->monto;
+            } elseif ($mov->tipo === 'egreso') {
+                $saldo -= $mov->monto;
+            }
+        }
+
+        // Ventas y compras
+        $saldo += \App\Models\Venta::sum('total_venta_ars');
+        $saldo -= \App\Models\Compra::sum('total_ars');
+
+        return $saldo;
     }
 }

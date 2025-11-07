@@ -3,137 +3,82 @@
 namespace App\Http\Controllers;
 
 use App\Models\Venta;
+use App\Models\Compra;
 use App\Models\DetalleVenta;
+use App\Models\Caja;
 use App\Models\CotizacionDolar;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ReporteExportController extends Controller
 {
-    // 📄 Exportar reporte de estadísticas a PDF
+    // 📄 Exportar reporte financiero a PDF
     public function exportPdf(Request $request)
-{
-    $desde = $request->input('fecha_desde');
-    $hasta = $request->input('fecha_hasta');
-
-    // Ventas mensuales
-    $ventasMensuales = Venta::select(
-            DB::raw('DATE_FORMAT(fecha, "%Y-%m") as mes'),
-            DB::raw('SUM(total_venta_ars) as total_ars')
-        )
-        ->when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
-        ->groupBy('mes')
-        ->orderBy('mes', 'asc')
-        ->get();
-
-    // Ganancia mensual
-    $gananciaMensual = DetalleVenta::select(
-            DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
-            DB::raw('SUM(ganancia_ars) as total_ganancia')
-        )
-        ->when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))
-        ->groupBy('mes')
-        ->orderBy('mes', 'asc')
-        ->get();
-
-    // 🔹 Nuevos datos
-    $totalCompras = \App\Models\Compra::sum('total_ars');
-    $caja = \App\Models\Caja::all();
-    $totalIngresos = $caja->where('tipo', 'ingreso')->sum('monto');
-    $totalEgresos  = $caja->where('tipo', 'egreso')->sum('monto');
-    $totalEnCaja   = $totalIngresos - $totalEgresos;
-    $totalPendiente = \App\Models\Venta::where('estado_pago', 'pendiente')->sum('saldo_pendiente');
-    $gananciaTotal = DetalleVenta::sum('ganancia_ars');
-    $gananciaEstimacion = $gananciaTotal - $totalCompras;
-
-    $ultimaCotizacion = \App\Models\CotizacionDolar::latest()->first();
-
-    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reportes.pdf', compact(
-        'ventasMensuales',
-        'gananciaMensual',
-        'ultimaCotizacion',
-        'desde',
-        'hasta',
-        'totalEnCaja',
-        'totalPendiente',
-        'totalCompras',
-        'totalIngresos',
-        'totalEgresos',
-        'gananciaTotal',
-        'gananciaEstimacion'
-    ));
-
-    return $pdf->download('reporte_estadisticas.pdf');
-}
-
-    // 📊 Exportar a Excel con encabezado de empresa, fecha y rango
-    public function exportExcel(Request $request)
     {
         $desde = $request->input('fecha_desde');
         $hasta = $request->input('fecha_hasta');
-        $ultimaCotizacion = CotizacionDolar::latest()->first();
 
-        $ventas = Venta::select('fecha', 'total_venta_ars', 'total_venta_usd', 'metodo_pago')
+        // 🔹 Ventas mensuales
+        $ventasMensuales = Venta::select(
+            DB::raw('DATE_FORMAT(fecha, "%Y-%m") as mes'),
+            DB::raw('SUM(total_venta_ars) as total_ars')
+        )
             ->when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
-            ->orderBy('fecha', 'asc')
+            ->groupBy('mes')
+            ->orderBy('mes', 'asc')
             ->get();
 
-        // Crear archivo Excel manualmente con PhpSpreadsheet
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Reporte Bluenova');
+        // 🔹 Ganancia mensual
+        $gananciaMensual = DetalleVenta::select(
+            DB::raw('DATE_FORMAT(created_at, "%Y-%m") as mes'),
+            DB::raw('SUM(ganancia_ars) as total_ganancia')
+        )
+            ->when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))
+            ->groupBy('mes')
+            ->orderBy('mes', 'asc')
+            ->get();
 
-        // Encabezado de empresa
-        $sheet->setCellValue('A1', 'Bluenova Import');
-        $sheet->setCellValue('A2', 'Gestión y estadísticas de ventas');
-        $sheet->setCellValue('A3', 'Reporte generado: ' . now()->format('d/m/Y H:i'));
-        $sheet->setCellValue('A4', $desde && $hasta ? "Período: $desde → $hasta" : "Período: Todos los registros");
-        $sheet->setCellValue('A5', 'Cotización USD: ' . ($ultimaCotizacion->valor_usd ?? 'Sin datos'));
-        $sheet->mergeCells('A1:D1');
-        $sheet->mergeCells('A2:D2');
-        $sheet->mergeCells('A3:D3');
-        $sheet->mergeCells('A4:D4');
-        $sheet->mergeCells('A5:D5');
+        // 🔹 Totales reales (respetan filtros)
+        $totalCompras = Compra::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))->sum('total_ars');
+        $totalVentas  = Venta::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))->sum('total_venta_ars');
 
-        // Encabezados de tabla
-        $sheet->fromArray(['Fecha', 'Total (ARS)', 'Total (USD)', 'Método de pago'], null, 'A7');
+        // 🔹 Caja
+        $cajaFiltrada = Caja::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))->get();
+        $totalIngresos = $cajaFiltrada->where('tipo', 'ingreso')->sum('monto');
+        $totalEgresos  = $cajaFiltrada->where('tipo', 'egreso')->sum('monto');
 
-        // Datos
-        $row = 8;
-        foreach ($ventas as $v) {
-            $sheet->setCellValue("A{$row}", $v->fecha);
-            $sheet->setCellValue("B{$row}", $v->total_venta_ars);
-            $sheet->setCellValue("C{$row}", $v->total_venta_usd);
-            $sheet->setCellValue("D{$row}", ucfirst($v->metodo_pago ?? 'N/A'));
-            $row++;
-        }
+        // 🔹 Saldo actual (último valor real de la caja)
+        $saldoActual = Caja::latest('fecha')->value('saldo_actual') ?? 0;
 
-        // Totales al final
-        $sheet->setCellValue("A{$row}", 'TOTAL');
-        $sheet->setCellValue("B{$row}", '=SUM(B8:B' . ($row - 1) . ')');
-        $sheet->setCellValue("C{$row}", '=SUM(C8:C' . ($row - 1) . ')');
-        $sheet->getStyle("A{$row}:D{$row}")->getFont()->setBold(true);
+        // 🔹 Pendientes de cobro
+        $totalPendiente = Venta::when($desde && $hasta, fn($q) => $q->whereBetween('fecha', [$desde, $hasta]))
+            ->where('estado_pago', 'pendiente')
+            ->sum('saldo_pendiente');
 
-        // Formato visual básico
-        $sheet->getStyle('A1:A5')->getFont()->setBold(true)->setSize(12);
-        $sheet->getStyle('A7:D7')->getFont()->setBold(true);
-        $sheet->getColumnDimension('A')->setWidth(18);
-        $sheet->getColumnDimension('B')->setWidth(18);
-        $sheet->getColumnDimension('C')->setWidth(18);
-        $sheet->getColumnDimension('D')->setWidth(20);
+        // 🔹 Ganancia total y estimada
+        $gananciaTotal = DetalleVenta::when($desde && $hasta, fn($q) => $q->whereBetween('created_at', [$desde, $hasta]))->sum('ganancia_ars');
+        $gananciaEstimacion = $gananciaTotal; // sin restar compras, se calcula real
 
-        // Descargar archivo
-        $writer = new Xlsx($spreadsheet);
-        $filename = 'reporte_ventas_bluenova.xlsx';
+        // 🔹 Cotización
+        $ultimaCotizacion = CotizacionDolar::latest()->first();
 
-        // Guardar temporalmente y devolver descarga
-        $tempPath = storage_path($filename);
-        $writer->save($tempPath);
+        // 🔹 Datos para la vista PDF
+        $pdf = Pdf::loadView('reportes.pdf', compact(
+            'ventasMensuales',
+            'gananciaMensual',
+            'ultimaCotizacion',
+            'desde',
+            'hasta',
+            'totalVentas',
+            'totalCompras',
+            'totalPendiente',
+            'totalIngresos',
+            'totalEgresos',
+            'saldoActual',
+            'gananciaEstimacion'
+        ));
 
-        return response()->download($tempPath)->deleteFileAfterSend(true);
+        return $pdf->download('Reporte_Financiero_Bluenova_' . now()->format('Ymd_His') . '.pdf');
     }
 }

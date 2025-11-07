@@ -14,7 +14,7 @@
             </div>
             <div class="col-md-3">
                 <label>Cotización dólar</label>
-                <input type="number" step="0.01" name="cotizacion_dolar" id="cotizacion_dolar" class="form-control" required>
+                <input type="number" step="0.01" name="cotizacion_dolar" id="cotizacion_dolar" class="form-control bg-light" readonly required>
             </div>
             <div class="col-md-3">
                 <label>Vendedor (opcional)</label>
@@ -74,16 +74,31 @@
                             <option value="">Seleccionar...</option>
                             @foreach($productos as $producto)
                             <option value="{{ $producto->id }}"
-                                data-precio-ars="{{ $producto->precio_venta_ars }}">
+                                data-cotizacion="{{ $producto->cotizacion_compra ?? 0 }}"
+                                data-precio-usd="{{ $producto->precio_venta_usd ?? 0 }}"
+                                data-precio-ars="{{ $producto->precio_venta_ars ?? 0 }}"
+                                data-ganancia="{{ $producto->porcentaje_ganancia ?? 0 }}"
+                                data-stock="{{ $producto->stock ?? 0 }}">
                                 {{ $producto->nombre }}
                             </option>
                             @endforeach
                         </select>
                     </td>
-                    <td><input type="number" name="productos[0][cantidad]" min="1" class="form-control cantidad" required></td>
-                    <td><input type="number" name="productos[0][precio_unitario_ars]" step="0.01" class="form-control precio_unitario_ars" required></td>
-                    <td><input type="number" step="0.01" class="form-control precio_unitario_usd" readonly></td>
-                    <td><button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)">X</button></td>
+                    <td>
+                        <input type="number" name="productos[0][cantidad]" min="1"
+                            class="form-control cantidad" required>
+                        <small class="text-danger d-none mensaje-stock"></small>
+                    </td>
+                    <td>
+                        <input type="number" name="productos[0][precio_unitario_ars]" step="0.01"
+                            class="form-control precio_unitario_ars" required>
+                    </td>
+                    <td>
+                        <input type="number" step="0.01" class="form-control precio_unitario_usd" readonly>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)">X</button>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -93,24 +108,23 @@
         <hr>
 
         <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>Total venta (ARS)</label>
                 <input type="number" step="0.01" name="total_venta_ars" id="total_venta_ars" class="form-control" readonly>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label>Comisión vendedor (ARS)</label>
+                <input type="number" step="0.01" id="comision_vendedor" class="form-control bg-light" readonly>
+            </div>
+            <div class="col-md-3">
                 <label>Monto pagado</label>
                 <input type="number" step="0.01" name="monto_pagado" id="monto_pagado" class="form-control" value="0" required>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>Saldo pendiente</label>
                 <input type="number" step="0.01" name="saldo_pendiente" id="saldo_pendiente" class="form-control" value="0" readonly>
             </div>
             <input type="hidden" name="estado_pago" id="estado_pago" value="pagado">
-        </div>
-
-        <div class="mb-3">
-            <label>Observaciones</label>
-            <textarea name="observaciones" class="form-control" rows="2"></textarea>
         </div>
 
         <br>
@@ -122,30 +136,34 @@
 <script>
     let fila = 1;
 
+    // ➕ Agregar nueva fila
     function agregarFila() {
         const tbody = document.getElementById('productosBody');
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>
-                <select name="productos[${fila}][id]" class="form-control select-producto" required>
-                    <option value="">Seleccionar...</option>
-                    @foreach($productos as $producto)
-                        <option value="{{ $producto->id }}"
-                                data-precio-ars="{{ $producto->precio_venta_ars }}">
-                            {{ $producto->nombre }}
-                        </option>
-                    @endforeach
-                </select>
-            </td>
-            <td><input type="number" name="productos[${fila}][cantidad]" min="1" class="form-control cantidad" required></td>
-            <td><input type="number" name="productos[${fila}][precio_unitario_ars]" step="0.01" class="form-control precio_unitario_ars" required></td>
-            <td><input type="number" step="0.01" class="form-control precio_unitario_usd" readonly></td>
-            <td><button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)">X</button></td>
-        `;
+        <td>
+            <select name="productos[${fila}][id]" class="form-control select-producto" required>
+                <option value="">Seleccionar...</option>
+                @foreach($productos as $producto)
+                    <option value="{{ $producto->id }}"
+                        data-cotizacion="{{ $producto->cotizacion_compra ?? 0 }}"
+                        data-precio-usd="{{ $producto->precio_venta_usd ?? 0 }}"
+                        data-precio-ars="{{ $producto->precio_venta_ars ?? 0 }}"
+                        data-ganancia="{{ $producto->porcentaje_ganancia ?? 0 }}"
+                        data-stock="{{ $producto->stock ?? 0 }}">
+                        {{ $producto->nombre }}
+                    </option>
+                @endforeach
+            </select>
+        </td>
+        <td><input type="number" name="productos[${fila}][cantidad]" min="1" class="form-control cantidad" required></td>
+        <td><input type="number" name="productos[${fila}][precio_unitario_ars]" step="0.01" class="form-control precio_unitario_ars" required></td>
+        <td><input type="number" step="0.01" class="form-control precio_unitario_usd" readonly></td>
+        <td><button type="button" class="btn btn-danger btn-sm" onclick="eliminarFila(this)">X</button></td>
+    `;
         tbody.appendChild(tr);
         attachRowEvents(tr);
         fila++;
-        recalcularTotal();
     }
 
     function eliminarFila(btn) {
@@ -153,108 +171,165 @@
         recalcularTotal();
     }
 
+    // 🚚 Cargar datos del producto
+    function cargarDatosProducto(row) {
+        const select = row.querySelector('.select-producto');
+        const opt = select.options[select.selectedIndex];
+        if (!opt || !opt.value) return;
+
+        const cotizacionProducto = parseFloat(opt.dataset.cotizacion || 0);
+        const precioVentaUSD = parseFloat(opt.dataset.precioUsd || 0);
+        const precioVentaARS_DB = parseFloat(opt.dataset.precioArs || 0);
+        const stock = parseInt(opt.dataset.stock || 0);
+
+        // Si aún no hay cotización global, fijar la del primer producto
+        const cotizacionInput = document.getElementById('cotizacion_dolar');
+        if (!cotizacionInput.value && cotizacionProducto > 0) {
+            cotizacionInput.value = cotizacionProducto.toFixed(2);
+        }
+
+        const cotizacionVenta = parseFloat(cotizacionInput.value) || cotizacionProducto;
+
+        // Calcular en base a la cotización del producto, no editable
+        let baseUSD = precioVentaUSD;
+        if (!baseUSD && precioVentaARS_DB && cotizacionProducto) {
+            baseUSD = precioVentaARS_DB / cotizacionProducto;
+        }
+        row.dataset.baseUsd = baseUSD || 0;
+
+        const precioARS = (baseUSD * cotizacionVenta) || 0;
+        row.querySelector('.precio_unitario_usd').value = baseUSD ? baseUSD.toFixed(2) : '';
+        row.querySelector('.precio_unitario_ars').value = precioARS ? precioARS.toFixed(2) : '';
+        row.querySelector('.cantidad').placeholder = `Stock: ${stock}`;
+
+        validarStock(row);
+        recalcularTotal();
+    }
+
+    function validarStock(row) {
+        const select = row.querySelector('.select-producto');
+        const cantidad = row.querySelector('.cantidad');
+        const mensaje = row.querySelector('.mensaje-stock');
+        if (!select || !cantidad || !mensaje) return;
+
+        const opt = select.options[select.selectedIndex];
+        const stock = parseInt(opt?.dataset.stock || 0);
+        const valor = parseInt(cantidad.value || 0);
+
+        if (stock && valor > stock) {
+            cantidad.classList.add('is-invalid');
+            mensaje.textContent = `Solo hay ${stock} unidades disponibles.`;
+            mensaje.classList.remove('d-none');
+        } else {
+            cantidad.classList.remove('is-invalid');
+            mensaje.textContent = '';
+            mensaje.classList.add('d-none');
+        }
+    }
+
     function attachRowEvents(row) {
         const select = row.querySelector('.select-producto');
         const cantidad = row.querySelector('.cantidad');
-        const precioArs = row.querySelector('.precio_unitario_ars');
-        const precioUsd = row.querySelector('.precio_unitario_usd');
+        const precioARSInput = row.querySelector('.precio_unitario_ars');
+        const precioUSDInput = row.querySelector('.precio_unitario_usd');
 
-        if (select) {
-            select.addEventListener('change', () => {
-                const opt = select.options[select.selectedIndex];
-                const precio = parseFloat(opt.dataset.precioArs || 0);
-                if (precio > 0) {
-                    precioArs.value = precio.toFixed(2);
-                }
-                actualizarPrecioUsd(row);
-                recalcularTotal();
-            });
-        }
-
-        if (cantidad) {
-            cantidad.addEventListener('input', () => {
-                recalcularTotal();
-            });
-        }
-
-        if (precioArs) {
-            precioArs.addEventListener('input', () => {
-                actualizarPrecioUsd(row);
-                recalcularTotal();
-            });
-        }
+        if (select) select.addEventListener('change', () => cargarDatosProducto(row));
+        if (cantidad) cantidad.addEventListener('input', () => {
+            validarStock(row);
+            recalcularTotal();
+        });
+        if (precioARSInput) precioARSInput.addEventListener('input', () => {
+            const cotizacionVenta = parseFloat(document.getElementById('cotizacion_dolar').value) || 0;
+            const valorARS = parseFloat(precioARSInput.value) || 0;
+            if (cotizacionVenta > 0 && precioUSDInput)
+                precioUSDInput.value = (valorARS / cotizacionVenta).toFixed(2);
+            recalcularTotal();
+        });
     }
 
-    function actualizarPrecioUsd(row) {
-        const cotizacion = parseFloat(document.getElementById('cotizacion_dolar').value) || 0;
-        const precioArs = parseFloat(row.querySelector('.precio_unitario_ars').value) || 0;
-        const precioUsdInput = row.querySelector('.precio_unitario_usd');
-        if (cotizacion > 0 && precioArs > 0) {
-            precioUsdInput.value = (precioArs / cotizacion).toFixed(2);
-        } else {
-            precioUsdInput.value = '';
-        }
-    }
-
+    // 💰 Calcular total
     function recalcularTotal() {
-        let total = 0;
+        let subtotalProductos = 0;
         document.querySelectorAll('#productosBody tr').forEach(row => {
             const cantidad = parseFloat(row.querySelector('.cantidad')?.value) || 0;
             const precio = parseFloat(row.querySelector('.precio_unitario_ars')?.value) || 0;
-            total += cantidad * precio;
+            subtotalProductos += cantidad * precio;
         });
-        const costoEnvio = parseFloat(document.getElementById('costo_envio').value) || 0;
-        total += costoEnvio;
-        const totalInput = document.getElementById('total_venta_ars');
-        totalInput.value = total.toFixed(2);
-        actualizarSaldoDesdePagado();
+
+        // Costo envío (si aplica)
+        const tipoEntrega = document.querySelector('select[name="tipo_entrega"]').value;
+        let costoEnvio = 0;
+        if (tipoEntrega === 'envio') {
+            costoEnvio = parseFloat(document.getElementById('costo_envio').value) || 0;
+        }
+
+        const comision = calcularComision(subtotalProductos);
+        const totalFinal = subtotalProductos - comision + costoEnvio;
+
+        document.getElementById('comision_vendedor').value = comision.toFixed(2);
+        document.getElementById('total_venta_ars').value = totalFinal.toFixed(2);
+        actualizarSaldo();
     }
 
-    let actualizandoSaldo = false;
+    function calcularComision(totalProductos) {
+        const porcentaje = parseFloat(document.getElementById('porcentaje_comision_vendedor').value) || 0;
+        const vendedor = document.getElementById('vendedor_id').value;
+        if (vendedor && porcentaje > 0) {
+            return (totalProductos * porcentaje) / 100;
+        }
+        return 0;
+    }
 
-    function actualizarSaldoDesdePagado() {
-        if (actualizandoSaldo) return;
-        actualizandoSaldo = true;
-
+    function actualizarSaldo() {
         const total = parseFloat(document.getElementById('total_venta_ars').value) || 0;
         const pagado = parseFloat(document.getElementById('monto_pagado').value) || 0;
         const saldo = Math.max(0, total - pagado);
+        document.getElementById('saldo_pendiente').value = saldo.toFixed(2);
+        document.getElementById('estado_pago').value = saldo > 0 ? 'pendiente' : 'pagado';
+    }
 
-        const saldoInput = document.getElementById('saldo_pendiente');
-        const estadoInput = document.getElementById('estado_pago');
-
-        saldoInput.value = saldo.toFixed(2);
-        estadoInput.value = saldo > 0 ? 'pendiente' : 'pagado';
-
-        actualizandoSaldo = false;
+    function toggleEnvioField() {
+        const tipoEntrega = document.querySelector('select[name="tipo_entrega"]').value;
+        const envioInput = document.getElementById('costo_envio');
+        const envioCol = envioInput.closest('.col-md-4');
+        if (tipoEntrega === 'envio') {
+            envioCol.style.display = 'block';
+        } else {
+            envioInput.value = 0;
+            envioCol.style.display = 'none';
+        }
+        recalcularTotal();
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // eventos sobre filas existentes
         document.querySelectorAll('#productosBody tr').forEach(attachRowEvents);
 
-        document.getElementById('cotizacion_dolar').addEventListener('input', () => {
-            document.querySelectorAll('#productosBody tr').forEach(actualizarPrecioUsd);
-        });
+        document.getElementById('monto_pagado').addEventListener('input', actualizarSaldo);
+        document.getElementById('vendedor_id').addEventListener('change', e => {
+            const opt = e.target.options[e.target.selectedIndex];
+            const comision = parseFloat(opt.dataset.comision || 0);
+            document.getElementById('porcentaje_comision_vendedor').value = comision;
 
-        document.getElementById('costo_envio').addEventListener('input', recalcularTotal);
+            const tipoEntrega = document.querySelector('select[name="tipo_entrega"]');
+            const envioInput = document.getElementById('costo_envio');
 
-        const pagadoInput = document.getElementById('monto_pagado');
-        pagadoInput.addEventListener('input', actualizarSaldoDesdePagado);
-
-        // vendedor -> % comision
-        const vendedorSelect = document.getElementById('vendedor_id');
-        const comisionInput = document.getElementById('porcentaje_comision_vendedor');
-
-        vendedorSelect.addEventListener('change', () => {
-            const opt = vendedorSelect.options[vendedorSelect.selectedIndex];
-            if (vendedorSelect.value) {
-                const com = parseFloat(opt.dataset.comision || 0);
-                comisionInput.value = com.toFixed(2);
+            if (e.target.value) {
+                tipoEntrega.querySelectorAll('option').forEach(opt => opt.disabled = opt.value !== '');
+                tipoEntrega.value = '';
+                envioInput.closest('.col-md-4').style.display = 'none';
+                envioInput.value = 0;
             } else {
-                comisionInput.value = 0;
+                tipoEntrega.querySelectorAll('option').forEach(opt => opt.disabled = false);
             }
+            recalcularTotal();
         });
+
+        document.getElementById('porcentaje_comision_vendedor').addEventListener('input', recalcularTotal);
+        document.querySelector('select[name="tipo_entrega"]').addEventListener('change', toggleEnvioField);
+        toggleEnvioField();
     });
 </script>
+
+
+
 @endsection

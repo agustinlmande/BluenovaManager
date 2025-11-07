@@ -12,6 +12,11 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\CajaController;
 
+
+
+
+
+
 Route::resource('caja', CajaController::class);
 
 
@@ -70,6 +75,14 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
+
+
+
+Route::get('/reportes/export/pdf', [ReporteExportController::class, 'exportPdf'])
+    ->name('reportes.exportPdf');
+
+Route::get('/reportes/export/excel', [ReporteExportController::class, 'exportExcel'])
+    ->name('reportes.exportExcel');
 
 
 // =====================

@@ -17,6 +17,7 @@ class Caja extends Model
         'motivo',
         'fecha',
         'editable',
+        'saldo_actual',
     ];
 
     public $timestamps = true; // o false si no tenés created_at

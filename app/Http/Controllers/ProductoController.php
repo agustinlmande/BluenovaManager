@@ -120,64 +120,72 @@ class ProductoController extends Controller
     // Mostrar formulario de edición
     public function edit(Producto $producto)
     {
+        $producto->load(['categoria', 'ultimoProveedor']); // 👈 cargamos el último proveedor
         $categorias = Categoria::all();
+
         return view('productos.edit', compact('producto', 'categorias'));
     }
 
+
+    // Actualizar producto
     // Actualizar producto
     public function update(Request $request, Producto $producto)
     {
         $request->validate([
-            'nombre' => 'required',
-            'categoria_id' => 'required|exists:categorias,id',
-            'precio_compra_usd' => 'required|numeric',
-            'cotizacion_compra' => 'required|numeric',
+            'cotizacion_dolar'      => 'required|numeric|min:0',
+            'precio_unitario_usd'   => 'required|numeric|min:0',
+            'costo_envio_ars'       => 'required|numeric|min:0',
+            'ganancia_porcentaje'   => 'nullable|numeric|min:0',
+            'precio_venta_usd'      => 'nullable|numeric|min:0',
+            'precio_venta_ars'      => 'nullable|numeric|min:0',
         ]);
 
-        $precio_compra_usd = $request->precio_compra_usd;
-        $cotizacion = $request->cotizacion_compra;
-        $precio_compra_ars = $precio_compra_usd * $cotizacion;
+        // === Variables base ===
+        $cotizacion = $request->cotizacion_dolar;
+        $precioUSD  = $request->precio_unitario_usd;
+        $envioARS   = $request->costo_envio_ars;
+        $ganancia   = $request->ganancia_porcentaje ?? 0;
+        $ventaUSD   = $request->precio_venta_usd;
+        $ventaARS   = $request->precio_venta_ars;
 
-        $precio_venta_ars = $request->precio_venta_ars;
-        $precio_venta_usd = $request->precio_venta_usd;
-        $porcentaje_ganancia = $request->porcentaje_ganancia;
+        // === COSTO TOTAL REAL (en ARS y USD) ===
+        $costoARS = ($precioUSD * $cotizacion) + $envioARS; // ejemplo: 1*1000 + 1000 = 2000
+        $costoUSD = $costoARS / $cotizacion;                // 2000/1000 = 2 USD
 
-        if ($precio_venta_ars && !$precio_venta_usd) {
-            $precio_venta_usd = $precio_venta_ars / $cotizacion;
-            $porcentaje_ganancia = (($precio_venta_ars - $precio_compra_ars) / $precio_compra_ars) * 100;
-        } elseif ($precio_venta_usd && !$precio_venta_ars) {
-            $precio_venta_ars = $precio_venta_usd * $cotizacion;
-            $porcentaje_ganancia = (($precio_venta_ars - $precio_compra_ars) / $precio_compra_ars) * 100;
-        } elseif ($porcentaje_ganancia && !$precio_venta_ars && !$precio_venta_usd) {
-            $precio_venta_ars = $precio_compra_ars + ($precio_compra_ars * $porcentaje_ganancia / 100);
-            $precio_venta_usd = $precio_venta_ars / $cotizacion;
+        // === Calcular valores faltantes ===
+        if ($ganancia > 0 && (empty($ventaUSD) || empty($ventaARS))) {
+            // Si solo hay % ganancia → calcular venta completa
+            $ventaUSD = $costoUSD * (1 + $ganancia / 100);
+            $ventaARS = $ventaUSD * $cotizacion;
+        } elseif (!empty($ventaUSD) && empty($ventaARS)) {
+            // Si hay venta USD → calcular ARS y ganancia
+            $ventaARS = $ventaUSD * $cotizacion;
+            $ganancia = (($ventaUSD - $costoUSD) / $costoUSD) * 100;
+        } elseif (!empty($ventaARS) && empty($ventaUSD)) {
+            // Si hay venta ARS → calcular USD y ganancia
+            $ventaUSD = $ventaARS / $cotizacion;
+            $ganancia = (($ventaUSD - $costoUSD) / $costoUSD) * 100;
         }
 
-        $precio_venta_ars = round($precio_venta_ars, 2);
-        $precio_venta_usd = round($precio_venta_usd, 2);
-        $porcentaje_ganancia = round($porcentaje_ganancia, 2);
+        // === Validaciones de coherencia ===
+        if ($ventaUSD < $costoUSD) {
+            return back()->withErrors([
+                'precio_venta_usd' => 'El precio de venta no puede ser menor al costo total (producto + envío).'
+            ]);
+        }
 
+        // === Guardar valores en columnas correctas ===
         $producto->update([
-            'nombre' => $request->nombre,
-            'categoria_id' => $request->categoria_id,
-            'descripcion' => $request->descripcion,
-            'imagen' => $request->imagen,
-            'stock' => $request->stock ?? 0,
-            'precio_compra_usd' => $precio_compra_usd,
-            'cotizacion_compra' => $cotizacion,
-            'precio_compra_ars' => $precio_compra_ars,
-            'precio_venta_usd' => $precio_venta_usd,
-            'precio_venta_ars' => $precio_venta_ars,
-            'porcentaje_ganancia' => $porcentaje_ganancia,
+            'cotizacion_compra'     => round($cotizacion, 2),
+            'precio_compra_usd'     => round($precioUSD, 2),
+            'precio_compra_ars'     => round($precioUSD * $cotizacion, 2),
+            'porcentaje_ganancia'   => round($ganancia, 2),
+            'precio_venta_usd'      => round($ventaUSD, 2),
+            'precio_venta_ars'      => round($ventaARS, 2),
         ]);
 
-        return redirect()->route('productos.index')->with('success', 'Producto actualizado correctamente.');
-    }
-
-    // Eliminar producto
-    public function destroy(Producto $producto)
-    {
-        $producto->delete();
-        return redirect()->route('productos.index')->with('success', 'Producto eliminado correctamente.');
+        return redirect()
+            ->route('productos.index')
+            ->with('success', 'Producto actualizado correctamente.');
     }
 }

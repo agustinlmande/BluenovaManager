@@ -21,4 +21,17 @@ class Compra extends Model
     {
         return $this->hasMany(DetalleCompra::class, 'compra_id');
     }
+
+
+    public function ultimoProveedor()
+    {
+        return $this->hasOneThrough(
+            \App\Models\Compra::class,
+            \App\Models\DetalleCompra::class,
+            'producto_id',   // Foreign key en detalle_compra
+            'id',            // Foreign key en compra
+            'id',            // Local key en producto
+            'compra_id'      // Local key en detalle_compra
+        )->latestOfMany();  // obtiene la última compra del producto
+    }
 }

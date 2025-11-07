@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Compra;
+use App\Models\DetalleCompra;
+
 
 
 
@@ -48,5 +51,16 @@ class Producto extends Model
     public function stockVendedores()
     {
         return $this->hasMany(StockVendedor::class, 'producto_id');
+    }
+    public function ultimoProveedor()
+    {
+        return $this->hasOneThrough(
+            \App\Models\Compra::class,          // Modelo al que llegamos
+            \App\Models\DetalleCompra::class,   // Modelo intermedio
+            'producto_id',                      // FK en detalle_compras
+            'id',                               // FK en compras
+            'id',                               // PK local en productos
+            'compra_id'                         // FK local en detalle_compras
+        )->latestOfMany(); // obtiene la última compra
     }
 }

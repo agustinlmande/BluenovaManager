@@ -129,6 +129,13 @@ class VentaController extends Controller
             // ✅ total incluye costo de envío
             $totalArs += ($request->costo_envio ?? 0);
 
+            // 🔹 Calcular comisión global sobre el total (solo si hay vendedor)
+            $comisionGlobal = 0;
+            if ($request->vendedor_id && $porcentajeComision !== null && $porcentajeComision > 0) {
+                $comisionGlobal = ($totalArs * $porcentajeComision) / 100;
+                $totalArs -= $comisionGlobal; // ✅ se descuenta del total final que ves en el create
+            }
+
             // Pagos
             $montoPagado = (float) $request->monto_pagado;
             $saldoPendiente = max(0, $totalArs - $montoPagado);
@@ -136,9 +143,9 @@ class VentaController extends Controller
 
             // ✅ Actualizamos la venta con totales y ganancia
             $venta->update([
-                'total_venta_ars' => $totalArs,
+                'total_venta_ars' => $totalArs,          // total final descontando comisión
                 'total_venta_usd' => $totalUsd,
-                'ganancia_ars'    => $gananciaTotal, // 🔹 ahora se guarda la ganancia real
+                'ganancia_ars'    => $gananciaTotal,     // ya calculada neta (dentro del foreach)
                 'monto_pagado'    => $montoPagado,
                 'saldo_pendiente' => $saldoPendiente,
                 'estado_pago'     => $estadoPago,
