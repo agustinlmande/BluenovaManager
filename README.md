@@ -1,9 +1,13 @@
 BLUENOVA MANAGER — DOCUMENTACIÓN TÉCNICA
 
 Versión: 1.0
+
 Autor: Agustín Leonardo Mande
+
 Fecha: Noviembre 2025
+
 Tecnología base: Laravel 12.36.1 / PHP 8.2.12 / MySQL
+
 1. Resumen del sistema
 Bluenova Manager es un sistema de gestión para emprendimientos pequeños/medianos. Soporta: productos, compras (registro de compras con envío por producto), ventas (con vendedor/comisión), historial de precios, caja (entradas/salidas), reportes y gestiones básicas (categorías, proveedores en compras, vendedores).
 
