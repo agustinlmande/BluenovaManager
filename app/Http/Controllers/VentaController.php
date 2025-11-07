@@ -97,8 +97,12 @@ class VentaController extends Controller
                 $producto->decrement('stock', $cantidad);
 
                 // Ganancia bruta
-                $costoTotalCompra = $producto->precio_compra_ars * $cantidad;
+                // 💰 Costo real = precio compra + envío (por unidad)
+                $costoTotalCompra = ($producto->precio_compra_ars + $producto->envio_ars) * $cantidad;
+
+                // 💵 Ganancia bruta real considerando el envío
                 $gananciaBruta = $subtotalArs - $costoTotalCompra;
+
 
                 // Comisión del vendedor
                 $comision = 0;

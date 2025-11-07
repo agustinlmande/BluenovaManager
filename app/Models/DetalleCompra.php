@@ -12,8 +12,13 @@ class DetalleCompra extends Model
     protected $table = 'detalle_compras';
 
     protected $fillable = [
-        'compra_id', 'producto_id', 'cantidad', 'precio_unitario_usd',
-        'cotizacion_dolar', 'precio_unitario_ars'
+        'compra_id',
+        'producto_id',
+        'cantidad',
+        'precio_unitario_usd',
+        'cotizacion_dolar',
+        'precio_unitario_ars',
+        'envio_ars', // 👈 asegurate de tener esto
     ];
 
     public function compra()
