@@ -11,7 +11,7 @@ return new class extends Migration
         DB::table('users')->insert([
             'name' => 'Administrador',
             'email' => 'admin@bluenova.com',
-            'password' => Hash::make('admin1234'), // ⚠️ Cambiá esta clave si querés
+            'password' => Hash::make('123456'), // ⚠️ Cambiá esta clave si querés
             'created_at' => now(),
             'updated_at' => now(),
         ]);

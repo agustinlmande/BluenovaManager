@@ -5,23 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-
-
-
-
 class Compra extends Model
 {
     use HasFactory;
 
     protected $table = 'compras';
 
-    protected $fillable = ['proveedor', 'fecha', 'total_usd', 'total_ars', 'observaciones'];
+    // Agregamos 'aplica_iva' y 'porcentaje_iva' al final de esta lista
+    protected $fillable = [
+        'proveedor',
+        'fecha',
+        'total_usd',
+        'total_ars',
+        'observaciones',
+        'aplica_iva',
+        'porcentaje_iva'
+    ];
 
     public function detalles()
     {
         return $this->hasMany(DetalleCompra::class, 'compra_id');
     }
-
 
     public function ultimoProveedor()
     {

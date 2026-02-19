@@ -27,6 +27,7 @@ class Venta extends Model
         'monto_pagado',
         'saldo_pendiente',
         'estado_pago',
+        'facturado',
     ];
 
     // 🔹 Relaciones
@@ -38,5 +39,10 @@ class Venta extends Model
     public function vendedor()
     {
         return $this->belongsTo(Vendedor::class, 'vendedor_id');
+    }
+
+    public function cuenta()
+    {
+        return $this->belongsTo(Cuenta::class, 'cuenta_id');
     }
 }

@@ -38,7 +38,9 @@ Route::resource('categorias', CategoriaController::class);
 Route::post('/productos/crear-rapido', [App\Http\Controllers\ProductoController::class, 'storeAjax'])
     ->name('productos.storeAjax');
 
-
+Route::get('/cuentas', [\App\Http\Controllers\CuentaController::class, 'index'])->name('cuentas.index');
+Route::post('/cuentas', [\App\Http\Controllers\CuentaController::class, 'store'])->name('cuentas.store');
+Route::post('/cuentas/transferir', [\App\Http\Controllers\CuentaController::class, 'transferir'])->name('cuentas.transferir');
 
 // =====================
 // 🔹 RUTAS DE COTIZACION

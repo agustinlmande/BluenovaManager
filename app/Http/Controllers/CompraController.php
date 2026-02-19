@@ -54,8 +54,13 @@ class CompraController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
-            $totalUsd = 0;
-            $totalArs = 0;
+            $totalProductosUsd = 0;
+            $totalProductosArs = 0;
+            $totalEnviosArs = 0; // Separamos el envío
+
+            // Detectar si aplicó IVA en la vista
+            $aplica_iva = $request->aplica_iva == '1';
+            $porcentaje_iva = $aplica_iva ? $request->porcentaje_iva : null;
 
             $compra = Compra::create([
                 'proveedor' => $request->proveedor,
@@ -63,6 +68,8 @@ class CompraController extends Controller
                 'total_usd' => 0,
                 'total_ars' => 0,
                 'observaciones' => $request->observaciones,
+                'aplica_iva' => $aplica_iva,
+                'porcentaje_iva' => $porcentaje_iva,
             ]);
 
             foreach ($request->productos as $item) {
@@ -70,8 +77,9 @@ class CompraController extends Controller
 
                 $subtotalUsd = $item['precio_unitario_usd'] * $item['cantidad'];
                 $subtotalArs = $subtotalUsd * $request->cotizacion_dolar;
+                $costoEnvioFila = ($item['envio_ars'] ?? 0) * $item['cantidad'];
 
-                // 🧾 Guardar detalle de la compra con envío incluido
+                // 🧾 Guardar detalle
                 DetalleCompra::create([
                     'compra_id' => $compra->id,
                     'producto_id' => $producto->id,
@@ -79,24 +87,21 @@ class CompraController extends Controller
                     'precio_unitario_usd' => $item['precio_unitario_usd'],
                     'cotizacion_dolar' => $request->cotizacion_dolar,
                     'precio_unitario_ars' => $item['precio_unitario_usd'] * $request->cotizacion_dolar,
-                    'envio_ars' => $item['envio_ars'] ?? 0, // ✅ nuevo campo
+                    'envio_ars' => $item['envio_ars'] ?? 0,
                 ]);
 
-                // 📦 Actualizar stock
+                // 📦 Actualizar stock y costos
                 $producto->increment('stock', $item['cantidad']);
-
-                // 💰 Actualizar costos del producto
                 $producto->update([
                     'precio_compra_usd' => $item['precio_unitario_usd'],
                     'cotizacion_compra' => $request->cotizacion_dolar,
                     'precio_compra_ars' => $item['precio_unitario_usd'] * $request->cotizacion_dolar,
-                    'envio_ars' => $item['envio_ars'] ?? 0, // ✅ nuevo campo
+                    'envio_ars' => $item['envio_ars'] ?? 0,
                     'precio_venta_usd' => $item['precio_venta_usd'] ?? $producto->precio_venta_usd,
                     'precio_venta_ars' => $item['precio_venta_ars'] ?? $producto->precio_venta_ars,
                     'porcentaje_ganancia' => $item['ganancia'] ?? $producto->porcentaje_ganancia,
                 ]);
 
-                // 📊 Registrar historial de precio
                 HistorialPrecio::create([
                     'producto_id' => $producto->id,
                     'compra_id' => $compra->id,
@@ -105,13 +110,30 @@ class CompraController extends Controller
                     'precio_compra_ars' => $item['precio_unitario_usd'] * $request->cotizacion_dolar,
                 ]);
 
-                $totalUsd += $subtotalUsd;
-                $totalArs += $subtotalArs + (($item['envio_ars'] ?? 0) * $item['cantidad']);
+                // Sumamos por separado para calcular el IVA después
+                $totalProductosUsd += $subtotalUsd;
+                $totalProductosArs += $subtotalArs;
+                $totalEnviosArs += $costoEnvioFila;
             }
 
+            // 🧮 Calcular totales finales de la factura
+            $totalFinalUsd = $totalProductosUsd;
+            $totalFinalArs = $totalProductosArs;
+
+            // Si hay IVA, se lo sumamos a los productos (NO al envío)
+            if ($aplica_iva && $porcentaje_iva > 0) {
+                $multiplicador = 1 + ($porcentaje_iva / 100);
+                $totalFinalUsd = $totalProductosUsd * $multiplicador;
+                $totalFinalArs = $totalProductosArs * $multiplicador;
+            }
+
+            // Por último, agregamos el envío al total en Pesos
+            $totalFinalArs += $totalEnviosArs;
+
+            // Actualizamos la compra general
             $compra->update([
-                'total_usd' => $totalUsd,
-                'total_ars' => $totalArs,
+                'total_usd' => $totalFinalUsd,
+                'total_ars' => $totalFinalArs,
             ]);
         });
 

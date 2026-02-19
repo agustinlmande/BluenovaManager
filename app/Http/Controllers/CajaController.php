@@ -6,6 +6,7 @@ use App\Models\Caja;
 use App\Models\Compra;
 use App\Models\Venta;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CajaController extends Controller
 {
@@ -140,35 +141,44 @@ class CajaController extends Controller
     // =============================
     public function create()
     {
-        return view('caja.create');
+        $cuentas = \App\Models\Cuenta::orderBy('nombre')->get();
+        return view('caja.create', compact('cuentas'));
     }
-
     // =============================
     // GUARDAR MOVIMIENTO
     // =============================
     public function store(Request $request)
     {
         $request->validate([
-            'tipo'  => 'required|in:ingreso,egreso',
-            'monto' => 'required|numeric|min:0',
-            'fecha' => 'required|date',
+            'tipo'      => 'required|in:ingreso,egreso',
+            'monto'     => 'required|numeric|min:0',
+            'fecha'     => 'required|date',
+            'cuenta_id' => 'required|exists:cuentas,id', // <-- Validación obligatoria
         ]);
 
         $fecha = str_replace('T', ' ', $request->fecha);
 
-        Caja::create([
-            'tipo'     => $request->tipo,
-            'monto'    => $request->monto,
-            'motivo'   => $request->motivo,
-            'fecha'    => $fecha,
-            'editable' => true,
-        ]);
+        DB::transaction(function () use ($request, $fecha) {
+            // 1. Creamos el movimiento en caja
+            Caja::create([
+                'tipo'      => $request->tipo,
+                'monto'     => $request->monto,
+                'motivo'    => $request->motivo,
+                'fecha'     => $fecha,
+                'cuenta_id' => $request->cuenta_id,
+                'editable'  => true,
+            ]);
 
-        // ✅ Recalcular el saldo actual después de guardar
-        $saldoActual = self::obtenerSaldoActual();
-        Caja::query()->latest('id')->update(['saldo_actual' => $saldoActual]);
+            // 2. Impactamos en el saldo de la cuenta elegida
+            $cuenta = \App\Models\Cuenta::find($request->cuenta_id);
+            if ($request->tipo === 'ingreso') {
+                $cuenta->increment('saldo', $request->monto);
+            } else {
+                $cuenta->decrement('saldo', $request->monto);
+            }
+        });
 
-        return redirect()->route('caja.index')->with('success', 'Movimiento registrado correctamente.');
+        return redirect()->route('caja.index')->with('success', 'Movimiento registrado y saldo de cuenta actualizado.');
     }
 
     // =============================
@@ -180,7 +190,9 @@ class CajaController extends Controller
             return back()->with('error', 'Este movimiento no puede ser editado (proviene de una venta o compra).');
         }
 
-        return view('caja.edit', compact('caja'));
+        // Cargamos las cuentas para poder cambiarlas si es necesario
+        $cuentas = \App\Models\Cuenta::orderBy('nombre')->get();
+        return view('caja.edit', compact('caja', 'cuentas'));
     }
 
     // =============================
@@ -193,25 +205,44 @@ class CajaController extends Controller
         }
 
         $request->validate([
-            'tipo'  => 'required|in:ingreso,egreso',
-            'monto' => 'required|numeric|min:0',
-            'fecha' => 'required|date|before_or_equal:now',
+            'tipo'      => 'required|in:ingreso,egreso',
+            'monto'     => 'required|numeric|min:0',
+            'fecha'     => 'required|date|before_or_equal:now',
+            'cuenta_id' => 'required|exists:cuentas,id',
         ]);
 
         $fecha = str_replace('T', ' ', $request->fecha);
 
-        $caja->update([
-            'tipo'   => $request->tipo,
-            'monto'  => $request->monto,
-            'motivo' => $request->motivo,
-            'fecha'  => $fecha,
-        ]);
+        \DB::transaction(function () use ($request, $caja, $fecha) {
+            // 1. Deshacer el impacto del saldo viejo en la cuenta vieja
+            $cuentaVieja = \App\Models\Cuenta::find($caja->cuenta_id);
+            if ($cuentaVieja) {
+                if ($caja->tipo === 'ingreso') {
+                    $cuentaVieja->decrement('saldo', $caja->monto);
+                } else {
+                    $cuentaVieja->increment('saldo', $caja->monto);
+                }
+            }
 
-        // ✅ Actualizar saldo_actual
-        $saldoActual = self::obtenerSaldoActual();
-        Caja::query()->latest('id')->update(['saldo_actual' => $saldoActual]);
+            // 2. Actualizar el registro del movimiento
+            $caja->update([
+                'tipo'      => $request->tipo,
+                'monto'     => $request->monto,
+                'motivo'    => $request->motivo,
+                'fecha'     => $fecha,
+                'cuenta_id' => $request->cuenta_id,
+            ]);
 
-        return redirect()->route('caja.index')->with('success', 'Movimiento actualizado correctamente.');
+            // 3. Aplicar el impacto del saldo nuevo en la cuenta nueva
+            $cuentaNueva = \App\Models\Cuenta::find($request->cuenta_id);
+            if ($request->tipo === 'ingreso') {
+                $cuentaNueva->increment('saldo', $request->monto);
+            } else {
+                $cuentaNueva->decrement('saldo', $request->monto);
+            }
+        });
+
+        return redirect()->route('caja.index')->with('success', 'Movimiento y saldos actualizados correctamente.');
     }
 
     // =============================

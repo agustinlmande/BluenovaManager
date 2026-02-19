@@ -9,17 +9,31 @@
 
         <!-- 🧾 Datos principales -->
         <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>Proveedor</label>
                 <input type="text" name="proveedor" class="form-control">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>Fecha</label>
                 <input type="date" name="fecha" class="form-control" max="{{ date('Y-m-d') }}" required>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-2">
                 <label>Cotización dólar</label>
                 <input type="number" step="0.01" name="cotizacion_dolar" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+                <label>¿Aplica IVA?</label>
+                <select name="aplica_iva" id="aplica_iva" class="form-control">
+                    <option value="0">No</option>
+                    <option value="1">Sí</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-none" id="div_porcentaje_iva">
+                <label>% de IVA</label>
+                <select name="porcentaje_iva" class="form-control">
+                    <option value="21">21%</option>
+                    <option value="10.5">10.5%</option>
+                </select>
             </div>
         </div>
 
@@ -33,6 +47,7 @@
                     <th>Cantidad</th>
                     <th>Precio unitario (USD)</th>
                     <th>Costo envío (ARS)</th>
+                    <th>Costo Base (USD) <small title="Costo + IVA + Envío">ℹ️</small></th>
                     <th>% Ganancia</th>
                     <th>Precio venta (USD)</th>
                     <th>Precio venta (ARS)</th>
@@ -53,6 +68,7 @@
                     <td><input type="number" name="productos[0][cantidad]" class="form-control cantidad" min="1" required></td>
                     <td><input type="number" name="productos[0][precio_unitario_usd]" step="0.01" class="form-control precio_compra" required></td>
                     <td><input type="number" step="0.01" name="productos[0][envio_ars]" class="form-control envio_ars" value="0"></td>
+                    <td><input type="number" class="form-control costo_base_usd bg-light" readonly tabindex="-1"></td>
                     <td><input type="number" step="0.01" name="productos[0][ganancia]" class="form-control ganancia"></td>
                     <td><input type="number" step="0.01" name="productos[0][precio_venta_usd]" class="form-control precio_venta_usd"></td>
                     <td><input type="number" step="0.01" name="productos[0][precio_venta_ars]" class="form-control precio_venta_ars"></td>
@@ -61,7 +77,6 @@
             </tbody>
         </table>
 
-        <!-- Plantilla oculta para nuevas filas -->
         <template id="filaProductoTemplate">
             <tr>
                 <td>
@@ -76,6 +91,7 @@
                 <td><input type="number" class="form-control cantidad" min="1" required></td>
                 <td><input type="number" step="0.01" class="form-control precio_compra" required></td>
                 <td><input type="number" step="0.01" class="form-control envio_ars" value="0"></td>
+                <td><input type="number" class="form-control costo_base_usd bg-light" readonly tabindex="-1"></td>
                 <td><input type="number" step="0.01" class="form-control ganancia"></td>
                 <td><input type="number" step="0.01" class="form-control precio_venta_usd"></td>
                 <td><input type="number" step="0.01" class="form-control precio_venta_ars"></td>
@@ -143,21 +159,51 @@
 </div>
 
 <!-- ⚙️ Scripts -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
     let fila = 1;
+
+    // Inicializar buscador en compras
+    function initSelect2Compra(row) {
+        $(row).find('.select-producto').select2({
+            placeholder: 'Escribe para buscar...',
+            width: '100%'
+        }).on('select2:select', function(e) {
+            const valor = e.params.data.id;
+            const formNuevo = document.getElementById('nuevoProductoForm');
+
+            // Mantenemos tu lógica de "Crear nuevo"
+            if (valor === 'nuevo') {
+                formNuevo.classList.remove('d-none');
+            } else {
+                formNuevo.classList.add('d-none');
+            }
+        });
+    }
 
     function agregarFila() {
         const tbody = document.getElementById('productosBody');
         const template = document.getElementById('filaProductoTemplate');
         const clone = template.content.cloneNode(true);
-        clone.querySelector('select').setAttribute('name', `productos[${fila}][id]`);
-        clone.querySelector('.cantidad').setAttribute('name', `productos[${fila}][cantidad]`);
-        clone.querySelector('.precio_compra').setAttribute('name', `productos[${fila}][precio_unitario_usd]`);
-        clone.querySelector('.envio_ars').setAttribute('name', `productos[${fila}][envio_ars]`);
-        clone.querySelector('.ganancia').setAttribute('name', `productos[${fila}][ganancia]`);
-        clone.querySelector('.precio_venta_usd').setAttribute('name', `productos[${fila}][precio_venta_usd]`);
-        clone.querySelector('.precio_venta_ars').setAttribute('name', `productos[${fila}][precio_venta_ars]`);
-        tbody.appendChild(clone);
+
+        // Creamos la fila real para poder inicializar Select2
+        const tr = document.createElement('tr');
+        tr.innerHTML = clone.firstElementChild.innerHTML;
+
+        // Asignamos nombres dinámicos
+        tr.querySelector('select').setAttribute('name', `productos[${fila}][id]`);
+        tr.querySelector('.cantidad').setAttribute('name', `productos[${fila}][cantidad]`);
+        tr.querySelector('.precio_compra').setAttribute('name', `productos[${fila}][precio_unitario_usd]`);
+        tr.querySelector('.envio_ars').setAttribute('name', `productos[${fila}][envio_ars]`);
+        tr.querySelector('.ganancia').setAttribute('name', `productos[${fila}][ganancia]`);
+        tr.querySelector('.precio_venta_usd').setAttribute('name', `productos[${fila}][precio_venta_usd]`);
+        tr.querySelector('.precio_venta_ars').setAttribute('name', `productos[${fila}][precio_venta_ars]`);
+
+        tbody.appendChild(tr);
+        initSelect2Compra(tr); // Iniciar buscador
         fila++;
     }
 
@@ -166,22 +212,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Inicializar filas existentes
+        document.querySelectorAll('#productosBody tr').forEach(initSelect2Compra);
+
         const formNuevo = document.getElementById('nuevoProductoForm');
         const selectCategoria = document.getElementById('nuevo_categoria');
         const modal = new bootstrap.Modal(document.getElementById('modalCategoria'));
 
-        document.addEventListener('change', e => {
-            if (e.target.classList.contains('select-producto')) {
-                formNuevo.classList.toggle('d-none', e.target.value !== 'nuevo');
-            }
-        });
-
-        // abrir modal al elegir nueva categoría
-        selectCategoria.addEventListener('change', () => {
-            if (selectCategoria.value === 'nueva_categoria') modal.show();
-        });
-
-        // guardar nueva categoría
+        // Guardar nueva categoría
         document.getElementById('btnGuardarCategoria').addEventListener('click', async () => {
             const nombre = document.getElementById('nueva_categoria_nombre').value.trim();
             if (!nombre) return alert('⚠️ Ingrese un nombre.');
@@ -199,29 +237,22 @@
                 });
                 const result = await res.json();
                 if (result.success) {
-                    const opt = document.createElement('option');
-                    opt.value = result.categoria.id;
-                    opt.textContent = result.categoria.nombre;
-                    selectCategoria.appendChild(opt);
-                    selectCategoria.value = result.categoria.id;
-                    document.getElementById('nueva_categoria_nombre').value = '';
+                    const opt = new Option(result.categoria.nombre, result.categoria.id, true, true);
+                    $('#nuevo_categoria').append(opt).trigger('change');
                     modal.hide();
-                    alert('✅ Categoría creada correctamente.');
-                } else alert('❌ Error al crear la categoría.');
+                }
             } catch (err) {
                 console.error(err);
-                alert('⚠️ Error de conexión.');
             }
         });
 
-        // guardar producto
+        // Guardar producto nuevo (AJAX) y actualizar los buscadores
         document.getElementById('btnGuardarNuevo').addEventListener('click', async () => {
             const data = {
                 nombre: document.getElementById('nuevo_nombre').value,
                 categoria_id: document.getElementById('nuevo_categoria').value,
                 _token: '{{ csrf_token() }}'
             };
-
             try {
                 const res = await fetch("{{ route('productos.storeAjax') }}", {
                     method: 'POST',
@@ -232,139 +263,60 @@
                     },
                     body: JSON.stringify(data)
                 });
-
                 const result = await res.json();
-
                 if (result.success) {
-                    // ✅ Buscar el select actual que tiene la opción "nuevo" seleccionada
-                    const selects = document.querySelectorAll('.select-producto');
-                    const selectActual = Array.from(selects).find(s => s.value === 'nuevo');
-
-                    if (selectActual) {
-                        const option = document.createElement('option');
-                        option.value = result.producto.id;
-                        option.textContent = result.producto.nombre;
-
-                        // Insertar antes del último ("nuevo")
-                        selectActual.insertBefore(option, selectActual.lastElementChild);
-                        selectActual.value = result.producto.id;
-                    }
-
+                    // Agregar el nuevo producto a todos los buscadores de la tabla
+                    const selects = $('.select-producto');
+                    selects.each(function() {
+                        const newOption = new Option(result.producto.nombre, result.producto.id, false, false);
+                        $(this).append(newOption).trigger('change');
+                    });
                     alert('✅ Producto creado correctamente');
                     formNuevo.classList.add('d-none');
-                    formNuevo.querySelectorAll('input').forEach(i => i.value = '');
-                } else {
-                    console.error(result.message);
-                    alert('❌ Error al crear el producto.');
                 }
-
             } catch (err) {
                 console.error(err);
-                alert('⚠️ No se pudo guardar el producto.');
             }
         });
 
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
+        // LÓGICA DE CÁLCULOS (IVA, COSTOS, GANANCIAS)
         const cotizacionInput = document.querySelector('input[name="cotizacion_dolar"]');
+        const aplicaIvaSelect = document.getElementById('aplica_iva');
+        const porcentajeIvaSelect = document.querySelector('select[name="porcentaje_iva"]');
 
-        // Función que recalcula los valores de una fila
         function recalcularFila(row) {
-            const compraInput = row.querySelector('.precio_compra');
-            const envioInput = row.querySelector('.envio_ars');
-            const gananciaInput = row.querySelector('.ganancia');
-            const ventaUsdInput = row.querySelector('.precio_venta_usd');
-            const ventaArsInput = row.querySelector('.precio_venta_ars');
+            const inputs = ['precio_compra', 'envio_ars', 'ganancia', 'precio_venta_usd', 'precio_venta_ars'].map(c => row.querySelector('.' + c));
 
             function getValues() {
+                let multiplicadorIva = (aplicaIvaSelect?.value === '1') ? (1 + (parseFloat(porcentajeIvaSelect.value) || 0) / 100) : 1;
                 return {
-                    compraUsd: parseFloat(compraInput.value) || 0,
+                    compraUsd: parseFloat(inputs[0].value) || 0,
                     cotizacion: parseFloat(cotizacionInput.value) || 0,
-                    envioArs: parseFloat(envioInput.value) || 0,
-                    ganancia: parseFloat(gananciaInput.value) || 0,
-                    ventaUsd: parseFloat(ventaUsdInput.value) || 0,
-                    ventaArs: parseFloat(ventaArsInput.value) || 0,
+                    envioArs: parseFloat(inputs[1].value) || 0,
+                    ganancia: parseFloat(inputs[2].value) || 0,
+                    multiplicadorIva: multiplicadorIva
                 };
             }
 
-            function calcularDesdeGanancia() {
-                const {
-                    compraUsd,
-                    cotizacion,
-                    envioArs,
-                    ganancia
-                } = getValues();
-                if (compraUsd > 0 && cotizacion > 0 && ganancia >= 0) {
-                    // Convertimos el envío a USD para sumarlo al costo total real
-                    const envioUsd = envioArs / cotizacion;
-                    const costoTotalUsd = compraUsd + envioUsd;
-                    const ventaUsd = costoTotalUsd + (costoTotalUsd * ganancia / 100);
-                    const ventaArs = ventaUsd * cotizacion;
-                    ventaUsdInput.value = ventaUsd.toFixed(2);
-                    ventaArsInput.value = ventaArs.toFixed(2);
+            function updateCalculos() {
+                const v = getValues();
+                const costoTotalUsd = (v.compraUsd * v.multiplicadorIva) + (v.cotizacion > 0 ? v.envioArs / v.cotizacion : 0);
+                row.querySelector('.costo_base_usd').value = costoTotalUsd.toFixed(2);
+
+                if (v.ganancia >= 0) {
+                    const ventaUsd = costoTotalUsd * (1 + v.ganancia / 100);
+                    inputs[3].value = ventaUsd.toFixed(2);
+                    inputs[4].value = (ventaUsd * v.cotizacion).toFixed(2);
                 }
             }
 
-            function calcularDesdeVentaUsd() {
-                const {
-                    compraUsd,
-                    cotizacion,
-                    envioArs,
-                    ventaUsd
-                } = getValues();
-                if (compraUsd > 0 && cotizacion > 0 && ventaUsd > 0) {
-                    const envioUsd = envioArs / cotizacion;
-                    const costoTotalUsd = compraUsd + envioUsd;
-                    const ganancia = ((ventaUsd - costoTotalUsd) / costoTotalUsd) * 100;
-                    const ventaArs = ventaUsd * cotizacion;
-                    gananciaInput.value = ganancia.toFixed(2);
-                    ventaArsInput.value = ventaArs.toFixed(2);
-                }
-            }
-
-            function calcularDesdeVentaArs() {
-                const {
-                    compraUsd,
-                    cotizacion,
-                    envioArs,
-                    ventaArs
-                } = getValues();
-                if (compraUsd > 0 && cotizacion > 0 && ventaArs > 0) {
-                    const ventaUsd = ventaArs / cotizacion;
-                    const envioUsd = envioArs / cotizacion;
-                    const costoTotalUsd = compraUsd + envioUsd;
-                    const ganancia = ((ventaUsd - costoTotalUsd) / costoTotalUsd) * 100;
-                    gananciaInput.value = ganancia.toFixed(2);
-                    ventaUsdInput.value = ventaUsd.toFixed(2);
-                }
-            }
-
-            gananciaInput.addEventListener('input', calcularDesdeGanancia);
-            ventaUsdInput.addEventListener('input', calcularDesdeVentaUsd);
-            ventaArsInput.addEventListener('input', calcularDesdeVentaArs);
-            compraInput.addEventListener('input', calcularDesdeGanancia);
-            envioInput.addEventListener('input', calcularDesdeGanancia);
+            row.addEventListener('input', updateCalculos);
         }
 
-
-        // Inicializa todas las filas actuales
         document.querySelectorAll('#productosBody tr').forEach(recalcularFila);
-
-        // Detecta cuando se agregan nuevas filas dinámicamente
-        const observer = new MutationObserver(() => {
-            document.querySelectorAll('#productosBody tr').forEach(recalcularFila);
-        });
+        const observer = new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && recalcularFila(n))));
         observer.observe(document.getElementById('productosBody'), {
             childList: true
-        });
-
-        // Si cambia la cotización, recalcular todas las filas
-        cotizacionInput.addEventListener('input', () => {
-            document.querySelectorAll('#productosBody tr').forEach(row => {
-                const event = new Event('input');
-                row.querySelector('.ganancia')?.dispatchEvent(event);
-            });
         });
     });
 </script>

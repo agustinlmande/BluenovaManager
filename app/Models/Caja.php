@@ -18,7 +18,11 @@ class Caja extends Model
         'fecha',
         'editable',
         'saldo_actual',
+        'cuenta_id', // <-- NUEVO
     ];
 
-    public $timestamps = true; // o false si no tenés created_at
+    public function cuenta()
+    {
+        return $this->belongsTo(Cuenta::class, 'cuenta_id');
+    }
 }

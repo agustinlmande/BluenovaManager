@@ -6,6 +6,7 @@ use App\Models\Venta;
 use App\Models\DetalleVenta;
 use App\Models\Producto;
 use App\Models\Vendedor;
+use App\Models\Cuenta; // ✅ Importamos el modelo de Cuentas
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +15,7 @@ class VentaController extends Controller
     // 🔹 Listado de ventas
     public function index()
     {
-        $ventas = Venta::with('vendedor', 'detalles.producto')
+        $ventas = Venta::with('vendedor', 'detalles.producto', 'cuenta')
             ->orderBy('fecha', 'desc')
             ->orderBy('id', 'desc')
             ->get();
@@ -27,7 +28,8 @@ class VentaController extends Controller
     {
         $productos = Producto::orderBy('nombre')->get();
         $vendedores = Vendedor::orderBy('nombre')->get();
-        return view('ventas.create', compact('productos', 'vendedores'));
+        $cuentas = Cuenta::orderBy('nombre')->get(); // ✅ Enviamos las cuentas a la vista
+        return view('ventas.create', compact('productos', 'vendedores', 'cuentas'));
     }
 
     // 🔹 Guardar nueva venta
@@ -37,13 +39,14 @@ class VentaController extends Controller
             'fecha' => 'required|date|before_or_equal:today',
             'cotizacion_dolar' => 'required|numeric|min:0',
             'metodo_pago' => 'required|in:efectivo,transferencia',
+            'facturado' => 'required|boolean', // ✅ Validamos el nuevo campo
+            'cuenta_id' => 'required|exists:cuentas,id', // ✅ Validamos la cuenta de ingreso
             'productos' => 'required|array|min:1',
             'productos.*.id' => 'required|exists:productos,id',
             'productos.*.cantidad' => 'required|integer|min:1',
             'productos.*.precio_unitario_ars' => 'required|numeric|min:0',
             'costo_envio' => 'nullable|numeric|min:0',
             'monto_pagado' => 'required|numeric|min:0',
-            'porcentaje_comision_vendedor' => 'nullable|numeric|min:0|max:100',
         ]);
 
         DB::transaction(function () use ($request) {
@@ -51,7 +54,6 @@ class VentaController extends Controller
             $totalUsd = 0;
             $gananciaTotal = 0;
 
-            // Vendedor y datos congelados
             $vendedorNombre = null;
             $porcentajeComision = null;
 
@@ -63,7 +65,6 @@ class VentaController extends Controller
                 $vendedorNombre = 'Venta propia';
             }
 
-            // Crear la venta base (totales en 0, luego actualizamos)
             $venta = Venta::create([
                 'fecha' => $request->fecha,
                 'vendedor_id' => $request->vendedor_id,
@@ -73,45 +74,46 @@ class VentaController extends Controller
                 'tipo_entrega' => $request->tipo_entrega ?: null,
                 'costo_envio' => $request->costo_envio ?? 0,
                 'metodo_pago' => $request->metodo_pago,
+                'facturado' => $request->facturado, // ✅ Guardamos si se facturó
+                'cuenta_id' => $request->cuenta_id, // ✅ Guardamos a qué cuenta fue el dinero
                 'total_venta_ars' => 0,
                 'total_venta_usd' => 0,
-                'ganancia_ars' => 0, // 🔹 agregado
+                'ganancia_ars' => 0,
                 'observaciones' => $request->observaciones,
                 'monto_pagado' => 0,
                 'saldo_pendiente' => 0,
                 'estado_pago' => 'pagado',
             ]);
 
-            // Procesar los productos vendidos
             foreach ($request->productos as $item) {
                 $producto = Producto::find($item['id']);
                 $cantidad = (int) $item['cantidad'];
                 $precioArs = (float) $item['precio_unitario_ars'];
 
                 $subtotalArs = $precioArs * $cantidad;
-                $subtotalUsd = $request->cotizacion_dolar > 0
-                    ? $subtotalArs / $request->cotizacion_dolar
-                    : 0;
+                $subtotalUsd = $request->cotizacion_dolar > 0 ? $subtotalArs / $request->cotizacion_dolar : 0;
 
-                // Reducir stock
+                // 📉 Reducir stock
                 $producto->decrement('stock', $cantidad);
 
-                // Ganancia bruta
-                // 💰 Costo real = precio compra + envío (por unidad)
+                // 🧮 Lógica de Ganancia Real
+                // Si es facturado, lo que realmente te queda es el precio / 1.21
+                $precioNetoVenta = $request->facturado ? ($precioArs / 1.21) : $precioArs;
+
+                // Costo real (Precio compra + envío cargado en la compra)
                 $costoTotalCompra = ($producto->precio_compra_ars + $producto->envio_ars) * $cantidad;
 
-                // 💵 Ganancia bruta real considerando el envío
-                $gananciaBruta = $subtotalArs - $costoTotalCompra;
+                // Ganancia bruta = Venta Neta - Costo
+                $gananciaBruta = ($precioNetoVenta * $cantidad) - $costoTotalCompra;
 
-
-                // Comisión del vendedor
+                // Comisión del vendedor (calculada sobre el total cobrado al cliente)
                 $comision = 0;
                 if ($request->vendedor_id && $porcentajeComision !== null) {
                     $comision = ($subtotalArs * $porcentajeComision) / 100;
                 }
 
                 $gananciaNeta = $gananciaBruta - $comision;
-                $gananciaTotal += $gananciaNeta; // 🔹 acumulamos ganancia total
+                $gananciaTotal += $gananciaNeta;
 
                 DetalleVenta::create([
                     'venta_id' => $venta->id,
@@ -121,59 +123,46 @@ class VentaController extends Controller
                     'precio_unitario_ars' => $precioArs,
                     'precio_unitario_usd' => $cantidad > 0 ? $subtotalUsd / $cantidad : 0,
                     'ganancia_ars' => $gananciaNeta,
-                    'porcentaje_ganancia' => $costoTotalCompra > 0
-                        ? ($gananciaNeta / $costoTotalCompra) * 100
-                        : 0,
+                    'porcentaje_ganancia' => $costoTotalCompra > 0 ? ($gananciaNeta / $costoTotalCompra) * 100 : 0,
                 ]);
 
                 $totalArs += $subtotalArs;
                 $totalUsd += $subtotalUsd;
             }
 
-            // ✅ total incluye costo de envío
+            // Sumar envío al total final
             $totalArs += ($request->costo_envio ?? 0);
 
-            // 🔹 Calcular comisión global sobre el total (solo si hay vendedor)
-            $comisionGlobal = 0;
+            // Descontar comisión global del total de la venta (según tu lógica actual)
             if ($request->vendedor_id && $porcentajeComision !== null && $porcentajeComision > 0) {
                 $comisionGlobal = ($totalArs * $porcentajeComision) / 100;
-                $totalArs -= $comisionGlobal; // ✅ se descuenta del total final que ves en el create
+                $totalArs -= $comisionGlobal;
             }
 
-            // Pagos
             $montoPagado = (float) $request->monto_pagado;
             $saldoPendiente = max(0, $totalArs - $montoPagado);
             $estadoPago = $saldoPendiente > 0 ? 'pendiente' : 'pagado';
 
-            // ✅ Actualizamos la venta con totales y ganancia
             $venta->update([
-                'total_venta_ars' => $totalArs,          // total final descontando comisión
+                'total_venta_ars' => $totalArs,
                 'total_venta_usd' => $totalUsd,
-                'ganancia_ars'    => $gananciaTotal,     // ya calculada neta (dentro del foreach)
+                'ganancia_ars'    => $gananciaTotal,
                 'monto_pagado'    => $montoPagado,
                 'saldo_pendiente' => $saldoPendiente,
                 'estado_pago'     => $estadoPago,
             ]);
+
+            // ✅ Sincronizar con la Billetera/Banco elegido
+            if ($montoPagado > 0) {
+                $cuenta = Cuenta::find($request->cuenta_id);
+                if ($cuenta) $cuenta->increment('saldo', $montoPagado);
+            }
         });
 
         return redirect()->route('ventas.index')->with('success', 'Venta registrada correctamente.');
     }
 
-    // 🔹 Mostrar / imprimir recibo
-    public function show(Venta $venta)
-    {
-        $venta->load('vendedor', 'detalles.producto');
-        return view('ventas.show', compact('venta'));
-    }
-
-    // 🔹 Editar venta (solo pagos)
-    public function edit(Venta $venta)
-    {
-        $venta->load('vendedor', 'detalles.producto');
-        return view('ventas.edit', compact('venta'));
-    }
-
-    // 🔹 Actualizar venta (solo pagos)
+    // ✏️ Actualizar venta (solo pagos)
     public function update(Request $request, Venta $venta)
     {
         $request->validate([
@@ -182,38 +171,57 @@ class VentaController extends Controller
             'estado_pago'     => 'required|in:pagado,pendiente',
         ]);
 
-        $total       = (float) $venta->total_venta_ars;
-        $montoPagado = (float) $request->monto_pagado;
-        $saldo       = (float) $request->saldo_pendiente;
+        $total = (float) $venta->total_venta_ars;
+        $nuevoMontoPagado = (float) $request->monto_pagado;
 
-        if ($montoPagado > $total) {
-            $montoPagado = $total;
-            $saldo = 0;
-        } else {
-            $saldo = max(0, $total - $montoPagado);
+        // Ajustar el saldo de la cuenta si el pago cambió
+        $diferencia = $nuevoMontoPagado - $venta->monto_pagado;
+        if ($diferencia != 0 && $venta->cuenta_id) {
+            $cuenta = Cuenta::find($venta->cuenta_id);
+            if ($cuenta) $cuenta->increment('saldo', $diferencia);
         }
 
+        $saldo = max(0, $total - $nuevoMontoPagado);
         $estadoPago = $saldo > 0 ? 'pendiente' : 'pagado';
 
         $venta->update([
-            'monto_pagado'    => $montoPagado,
+            'monto_pagado'    => $nuevoMontoPagado,
             'saldo_pendiente' => $saldo,
             'estado_pago'     => $estadoPago,
         ]);
 
-        return redirect()->route('ventas.index')->with('success', 'Venta actualizada correctamente.');
+        return redirect()->route('ventas.index')->with('success', 'Pago actualizado correctamente.');
     }
 
-    // 🔹 Eliminar venta (restaura stock)
+    // 🔹 Mostrar / imprimir recibo
+    public function show(Venta $venta)
+    {
+        // Cargamos las relaciones incluyendo la nueva 'cuenta'
+        $venta->load('vendedor', 'detalles.producto', 'cuenta');
+        return view('ventas.show', compact('venta'));
+    }
+
+    // 🔹 Editar venta (solo pagos)
+    public function edit(Venta $venta)
+    {
+        $venta->load('vendedor', 'detalles.producto', 'cuenta');
+        return view('ventas.edit', compact('venta'));
+    }
+
+    // 🗑️ Eliminar venta
     public function destroy(Venta $venta)
     {
         DB::transaction(function () use ($venta) {
-            $venta->load('detalles.producto');
-
             foreach ($venta->detalles as $detalle) {
                 if ($detalle->producto) {
                     $detalle->producto->increment('stock', $detalle->cantidad);
                 }
+            }
+
+            // Devolver la plata de la cuenta
+            if ($venta->monto_pagado > 0 && $venta->cuenta_id) {
+                $cuenta = Cuenta::find($venta->cuenta_id);
+                if ($cuenta) $cuenta->decrement('saldo', $venta->monto_pagado);
             }
 
             $venta->detalles()->delete();
